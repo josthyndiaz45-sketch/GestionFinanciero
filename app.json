@@ -4,21 +4,44 @@
     "slug": "GestionFinanciero",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/monoicon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/monoicon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#4F46E5"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.josthyndiaz.GestionFinanciero",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+        "backgroundColor": "#4F46E5",
+        "foregroundImage": "./assets/monoicon.png"
+      },
+      "package": "com.josthyndiaz.GestionFinanciero"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/monoicon.png"
+    },
+    "plugins": [
+      "expo-splash-screen",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/monoicon.png",
+          "color": "#4F46E5"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "21207f50-a188-47ee-a188-010d9053a44b"
+      }
     }
   }
 }
