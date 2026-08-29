@@ -96,7 +96,7 @@ export default function SettingsScreen({ navigation }) {
             <Image source={logo} style={styles.aboutLogo} resizeMode="contain" />
             <View style={styles.aboutInfo}>
               <Text style={[styles.aboutApp, { color: theme.colors.text }]}>Gestión Financiera</Text>
-              <Text style={[styles.aboutDev, { color: theme.colors.textSecondary }]}>Josthyn Alberto Diaz Martinez</Text>
+              <Text style={[styles.aboutDev, { color: theme.colors.textSecondary }]}>Josthyn Diaz Martinez</Text>
               <Text style={[styles.aboutVersion, { color: theme.colors.textSecondary }]}>Versión 1.0.0</Text>
             </View>
           </View>
