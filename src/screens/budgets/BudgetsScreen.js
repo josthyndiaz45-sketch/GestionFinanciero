@@ -10,6 +10,7 @@ import { useCategories } from '../../providers/CategoryContext';
 import { useAppAlert } from '../../providers/AlertContext';
 import { formatCurrency } from '../../utils/formatters';
 import { createNewBudget } from '../../models/Budget';
+import * as budgetService from '../../services/budgetService';
 
 export default function BudgetsScreen() {
   const { theme } = useTheme();
@@ -81,6 +82,15 @@ export default function BudgetsScreen() {
       year: yearInt,
     };
     try {
+      const label = expenseCategories.find((c) => c.name === category)?.label || category;
+      const allBudgets = await budgetService.getBudgets(user.id);
+      const duplicate = allBudgets.some(
+        (b) => b.category.toLowerCase() === category.toLowerCase() && b.month === monthInt && b.year === yearInt && b.id !== (editing ? editing.id : undefined)
+      );
+      if (duplicate) {
+        showAlert('Error', `El nombre "${label}" ya está en uso para ese mes y año. Por favor ingresa un nombre diferente.`);
+        return;
+      }
       if (editing) {
         await editBudget({ ...editing, ...data });
       } else {

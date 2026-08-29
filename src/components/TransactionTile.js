@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../providers/ThemeContext';
 import { useCategories } from '../providers/CategoryContext';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatDateTime } from '../utils/formatters';
 
 export default function TransactionTile({ transaction, onPress, onDelete }) {
   const { theme } = useTheme();
@@ -19,7 +19,7 @@ export default function TransactionTile({ transaction, onPress, onDelete }) {
       </View>
       <View style={styles.info}>
         <Text style={[styles.description, { color: theme.colors.text }]} numberOfLines={1}>{transaction.description}</Text>
-        <Text style={[styles.category, { color: theme.colors.textSecondary }]}>{cat.label} • {formatDate(transaction.date)}</Text>
+        <Text style={[styles.category, { color: theme.colors.textSecondary }]} numberOfLines={1}>{cat.label} • {formatDateTime(transaction.date)}</Text>
       </View>
       <View style={styles.rightSection}>
         <Text style={[styles.amount, { color: isIncome ? '#10B981' : '#F43F5E' }]}>

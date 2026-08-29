@@ -15,7 +15,7 @@ import { createNewTransaction } from '../../models/Transaction';
 export default function TransactionFormScreen({ navigation, route }) {
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { addTransaction, editTransaction } = useTransactions();
+  const { addTransaction, editTransaction, transactions, loadTransactions } = useTransactions();
   const { getTag, setTag } = useTags();
   const { getCategories } = useCategories();
   const { showAlert } = useAppAlert();
@@ -39,11 +39,18 @@ export default function TransactionFormScreen({ navigation, route }) {
     }
   }, [existing?.id]);
 
+  useEffect(() => {
+    loadTransactions();
+  }, []);
+
   function formatDateDisplay(d) {
     const dd = String(d.getDate()).padStart(2, '0');
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const yyyy = d.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    return `${dd}/${mm}/${yyyy}  ${hh}:${mi}:${ss}`;
   }
 
   const categories = getCategories(type);
@@ -63,13 +70,31 @@ export default function TransactionFormScreen({ navigation, route }) {
       return;
     }
 
+    const trimmedDesc = description.trim();
+    const duplicate = transactions.some((t) => {
+      if (existing && t.id === existing.id) return false;
+      if (String(t.description || '').trim().toLowerCase() !== trimmedDesc.toLowerCase()) return false;
+      const a = new Date(t.date);
+      return a.getFullYear() === date.getFullYear() && a.getMonth() === date.getMonth() && a.getDate() === date.getDate();
+    });
+    if (duplicate) {
+      showAlert('Error', `Ya existe un movimiento llamado "${trimmedDesc}" en la fecha seleccionada. Por favor ingresa un nombre diferente.`);
+      return;
+    }
+
+    const effectiveDate = new Date(date);
+    if (effectiveDate.getHours() === 0 && effectiveDate.getMinutes() === 0 && effectiveDate.getSeconds() === 0) {
+      const now = new Date();
+      effectiveDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), 0);
+    }
+
     const txData = {
       userId: user.id,
       type,
       amount: parseFloat(amount),
       category,
-      description: description.trim(),
-      date: date.toISOString(),
+      description: trimmedDesc,
+      date: effectiveDate.toISOString(),
       paymentMethod,
       note: note.trim(),
     };
