@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useTheme } from '../../providers/ThemeContext';
+import { useAppAlert } from '../../providers/AlertContext';
 import { signIn, signUp } from '../../services/authService';
 import logo from '../../../assets/monoicon.png';
 
 export default function LoginScreen() {
   const { theme } = useTheme();
+  const { showAlert } = useAppAlert();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
@@ -13,7 +15,7 @@ export default function LoginScreen() {
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Ingresa email y contraseña');
+      showAlert('Error', 'Ingresa email y contraseña');
       return;
     }
     setLoading(true);
@@ -22,7 +24,7 @@ export default function LoginScreen() {
         await signIn(email.trim(), password);
       } else {
         await signUp(email.trim(), password);
-        Alert.alert('Cuenta creada', 'Revisa tu email para confirmar tu cuenta.');
+        showAlert('Cuenta creada', 'Revisa tu email para confirmar tu cuenta.');
       }
     } catch (e) {
       let msg = 'Ocurrió un error';
@@ -30,7 +32,7 @@ export default function LoginScreen() {
       else if (e.message?.includes('already registered')) msg = 'Este email ya está registrado';
       else if (e.message?.includes('Password')) msg = 'La contraseña debe tener al menos 6 caracteres';
       else msg = e.message || msg;
-      Alert.alert('Error', msg);
+      showAlert('Error', msg);
     } finally {
       setLoading(false);
     }

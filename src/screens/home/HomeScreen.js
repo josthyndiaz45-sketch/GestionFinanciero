@@ -39,6 +39,16 @@ function dueLabel(days) {
   return `${days} días`;
 }
 
+function byDateDesc(a, b) {
+  const da = new Date(a.date).getTime();
+  const db = new Date(b.date).getTime();
+  if (da !== db) return db - da;
+  const ca = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+  const cb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+  if (ca !== cb) return cb - ca;
+  return String(b.id).localeCompare(String(a.id));
+}
+
 export default function HomeScreen({ navigation }) {
   const { theme } = useTheme();
   const { user } = useAuth();
@@ -67,7 +77,7 @@ export default function HomeScreen({ navigation }) {
   const totalIncome = transactions.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const totalExpense = transactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
   const balance = initialBalance + totalIncome - totalExpense;
-  const recentTx = transactions.slice(0, 5);
+  const recentTx = [...transactions].sort(byDateDesc).slice(0, 5);
 
   // Upcoming unpaid reminders within 7 days
   const currentMonthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;

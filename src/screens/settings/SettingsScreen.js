@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, TextInput, Modal, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Modal, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../providers/ThemeContext';
 import logo from '../../../assets/monoicon.png';
 import { useAuth } from '../../providers/AuthContext';
 import { useBalance } from '../../providers/BalanceContext';
+import { useAppAlert } from '../../providers/AlertContext';
 import { signOut } from '../../services/authService';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -13,20 +14,18 @@ export default function SettingsScreen({ navigation }) {
   const { theme, isDark, toggleTheme } = useTheme();
   const { user } = useAuth();
   const { initialBalance, updateInitialBalance } = useBalance();
+  const { showAlert, showConfirm } = useAppAlert();
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [balanceInput, setBalanceInput] = useState(String(initialBalance));
 
   const handleLogout = () => {
-    Alert.alert('Cerrar sesión', '¿Estás seguro?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Cerrar sesión', style: 'destructive', onPress: () => signOut() },
-    ]);
+    showConfirm('Cerrar sesión', '¿Estás seguro?', () => signOut(), 'Cerrar sesión');
   };
 
   const handleSaveBalance = async () => {
     const val = parseFloat(balanceInput);
     if (isNaN(val) || val < 0) {
-      Alert.alert('Error', 'Ingresa un monto válido');
+      showAlert('Error', 'Ingresa un monto válido');
       return;
     }
     await updateInitialBalance(val);
@@ -73,6 +72,7 @@ export default function SettingsScreen({ navigation }) {
           />
           <Row icon="flag-outline" label="Metas de ahorro" onPress={() => navigation.navigate('SavingGoals')} />
           <Row icon="wallet-outline" label="Presupuestos" onPress={() => navigation.navigate('Budgets')} />
+          <Row icon="pricetags-outline" label="Categorías" onPress={() => navigation.navigate('Categories')} />
           <Row icon="notifications-outline" label="Recordatorios de pago" onPress={() => navigation.navigate('Reminders')} />
         </Section>
 
@@ -87,16 +87,17 @@ export default function SettingsScreen({ navigation }) {
         </Section>
 
         <Section title="Seguridad">
-          <Row icon="lock-closed-outline" label="Cambiar contraseña" onPress={() => Alert.alert('Info', 'Función pendiente')} />
+          <Row icon="lock-closed-outline" label="Cambiar contraseña" onPress={() => showAlert('Info', 'Función pendiente')} />
           <Row icon="log-out-outline" label="Cerrar sesión" onPress={handleLogout} />
         </Section>
 
         <Section title="Acerca de">
-          <View style={styles.aboutLogoRow}>
+          <View style={styles.aboutRow}>
             <Image source={logo} style={styles.aboutLogo} resizeMode="contain" />
-            <View>
-              <Row icon="information-circle-outline" label="Versión" value="1.0.0" />
-              <Row icon="person-outline" label="Desarrollador" value="Josthyn Diaz" />
+            <View style={styles.aboutInfo}>
+              <Text style={[styles.aboutApp, { color: theme.colors.text }]}>Gestión Financiera</Text>
+              <Text style={[styles.aboutDev, { color: theme.colors.textSecondary }]}>Josthyn Diaz</Text>
+              <Text style={[styles.aboutVersion, { color: theme.colors.textSecondary }]}>Versión 1.0.0</Text>
             </View>
           </View>
         </Section>
@@ -161,6 +162,10 @@ const styles = StyleSheet.create({
   amountInput: { flex: 1, fontSize: 22, fontWeight: 'bold', paddingVertical: 14 },
   modalActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
   modalBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  aboutLogoRow: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 16 },
+  aboutRow: { flexDirection: 'row', alignItems: 'center', padding: 20, gap: 16 },
   aboutLogo: { width: 64, height: 64 },
+  aboutInfo: { flex: 1 },
+  aboutApp: { fontSize: 16, fontWeight: 'bold' },
+  aboutDev: { fontSize: 14, marginTop: 4, fontWeight: '500' },
+  aboutVersion: { fontSize: 12, marginTop: 2 },
 });

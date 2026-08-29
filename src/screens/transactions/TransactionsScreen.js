@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import CalendarDatePicker from '../../components/CalendarDatePicker';
 import { useTheme } from '../../providers/ThemeContext';
 import { useAuth } from '../../providers/AuthContext';
 import { useTransactions } from '../../providers/TransactionContext';
+import { useCategories } from '../../providers/CategoryContext';
+import { useAppAlert } from '../../providers/AlertContext';
 import TransactionTile from '../../components/TransactionTile';
-import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, PAYMENT_METHODS } from '../../constants/constants';
+import { PAYMENT_METHODS } from '../../constants/constants';
 import { formatDate } from '../../utils/formatters';
 
 function parseDateStr(str) {
@@ -16,10 +18,22 @@ function parseDateStr(str) {
   return isNaN(d) ? null : d;
 }
 
+function byDateDesc(a, b) {
+  const da = new Date(a.date).getTime();
+  const db = new Date(b.date).getTime();
+  if (da !== db) return db - da;
+  const ca = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+  const cb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+  if (ca !== cb) return cb - ca;
+  return String(b.id).localeCompare(String(a.id));
+}
+
 export default function TransactionsScreen({ navigation }) {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { transactions, loadTransactions, removeTransaction } = useTransactions();
+  const { getCategories } = useCategories();
+  const { showConfirm } = useAppAlert();
   const [filterType, setFilterType] = useState('all');
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -77,13 +91,10 @@ export default function TransactionsScreen({ navigation }) {
     setSearch('');
   };
 
-  const allCategories = [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES];
+  const allCategories = [...getCategories('income'), ...getCategories('expense')];
 
   const handleDelete = (tx) => {
-    Alert.alert('Eliminar movimiento', `¿Eliminar "${tx.description}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => removeTransaction(tx.id) },
-    ]);
+    showConfirm('Eliminar movimiento', `¿Eliminar "${tx.description}"?`, () => removeTransaction(tx.id));
   };
 
   const formatDateLabel = (date) => {
@@ -143,7 +154,7 @@ export default function TransactionsScreen({ navigation }) {
           renderItem={({ item: section }) => (
             <View>
               <Text style={[styles.dateHeader, { color: theme.colors.textSecondary }]}>{formatDateLabel(section.date)}</Text>
-              {section.items.map((tx) => (
+              {[...section.items].sort(byDateDesc).map((tx) => (
                 <TransactionTile
                   key={tx.id}
                   transaction={tx}

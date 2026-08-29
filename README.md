@@ -140,6 +140,41 @@ Cada día a las 12 del mediodía llega un correo suave con los pagos que vencen 
 
 ---
 
+## 🔔 Notificaciones Web Push (navegadores)
+
+Solo web: al abrir la app en el navegador se registra automáticamente una suscripción (te pedirá permiso). El envío lo hace la misma Edge Function de las 12:00, **diario hasta que marques "pagado"**.
+
+1. Crea la tabla de suscripciones. Ejecuta en **SQL Editor** el contenido de `supabase/sql/push_subscriptions.sql`.
+2. Guarda los secrets en Supabase (usa las llaves generadas en tu proyecto):
+
+```bash
+npx supabase secrets set VAPID_PUBLIC_KEY=...
+npx supabase secrets set VAPID_PRIVATE_KEY=...
+npx supabase secrets set VAPID_SUBJECT=mailto:tu@email.com
+```
+
+3. Despliega la función (ahora envía push + email opcional):
+
+```bash
+npx supabase functions deploy send-reminders
+```
+
+4. Programa el cron diario en **Edge Functions → send-reminders → Schedules** (o crea uno nuevo):
+
+```
+Cron: 0 12 * * *
+Timezone: America/Lima
+```
+
+> ⚠️ Si tu schedule del correo ya existe, ahora enviará push además del email. Si el email no te importa, simplemente no configures `RESEND_API_KEY`.
+
+**Notas de compatibilidad:**
+- **Chrome/Edge (Android, PC)** y Windows: suenan y vibran, incluso con el navegador cerrado.
+- **iPhone/iPad (Safari)**: debes agregar el sitio a pantalla de inicio (Share → "Añadir a pantalla de inicio") e iOS 16.4+; Apple no permite sonido en web push.
+- Para probar al instante: configurado el cron, crea/haz un recordatorio sin pagar y pulsa "Invoke" en la función desde el dashboard.
+
+---
+
 ## 🗂️ Estructura
 
 ```
@@ -154,9 +189,13 @@ src/
   screens/         # Pantallas (home, movimientos, estadísticas, presupuestos, metas, recordatorios, ajustes, login)
   services/        # Servicios Supabase, recordatorios, notificaciones, etiquetas
   utils/           # formatCurrency, generateId
+public/
+  sw.js            # Service worker de Web Push
 supabase/
   functions/
-    send-reminders/   # Edge Function de recordatorios por email
+    send-reminders/   # Edge Function de recordatorios (push + email)
+  sql/
+    push_subscriptions.sql
 ```
 
 ---

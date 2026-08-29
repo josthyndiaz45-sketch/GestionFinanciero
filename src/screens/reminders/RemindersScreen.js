@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, Modal, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../providers/ThemeContext';
 import { useReminders } from '../../providers/ReminderContext';
+import { useAppAlert } from '../../providers/AlertContext';
 import { formatCurrency } from '../../utils/formatters';
 import { createReminderTemplate } from '../../services/reminderService';
 import { scheduleReminderNotifications, cancelReminderNotifications, SOUND_OPTIONS, ALERT_TIMING_OPTIONS } from '../../services/notificationService';
@@ -47,6 +48,7 @@ const SOUND_ICONS = { default: 'volume-high-outline', urgent: 'alert-circle-outl
 export default function RemindersScreen() {
   const { theme } = useTheme();
   const { reminders, loadReminders, addReminder, editReminder, removeReminder } = useReminders();
+  const { showAlert, showConfirm } = useAppAlert();
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [name, setName] = useState('');
@@ -83,8 +85,8 @@ export default function RemindersScreen() {
   };
 
   const handleSave = async () => {
-    if (!name.trim()) { Alert.alert('Error', 'Ingresa un nombre'); return; }
-    if (!amount || parseFloat(amount) <= 0) { Alert.alert('Error', 'Ingresa un monto válido'); return; }
+    if (!name.trim()) { showAlert('Error', 'Por favor ingresa un nombre antes de guardar'); return; }
+    if (!amount || parseFloat(amount) <= 0) { showAlert('Error', 'Por favor ingresa un monto válido antes de guardar'); return; }
     const data = {
       name: name.trim(),
       amount: parseFloat(amount),
@@ -111,20 +113,15 @@ export default function RemindersScreen() {
       }
       setShowModal(false);
     } catch (e) {
-      Alert.alert('Error', e.message);
+      showAlert('Error', e.message);
     }
   };
 
   const handleDelete = (r) => {
-    Alert.alert('Eliminar', `¿Eliminar "${r.name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar', style: 'destructive', onPress: async () => {
-          await cancelReminderNotifications(r);
-          await removeReminder(r.id);
-        }
-      },
-    ]);
+    showConfirm('Eliminar recordatorio', `¿Eliminar "${r.name}"?`, async () => {
+      await cancelReminderNotifications(r);
+      await removeReminder(r.id);
+    });
   };
 
   const handleTogglePaid = async (r) => {
@@ -133,7 +130,12 @@ export default function RemindersScreen() {
     const paidMonths = r.paidMonths || [];
     const isPaid = paidMonths.includes(key);
     const newPaidMonths = isPaid ? paidMonths.filter((m) => m !== key) : [...paidMonths, key];
-    await editReminder({ ...r, paidMonths: newPaidMonths });
+    const updated = await editReminder({ ...r, paidMonths: newPaidMonths });
+    await cancelReminderNotifications(updated);
+    const ids = await scheduleReminderNotifications(updated);
+    if (ids && ids.length > 0) {
+      await editReminder({ ...updated, notificationIds: ids });
+    }
   };
 
   const sorted = [...reminders].sort((a, b) => {

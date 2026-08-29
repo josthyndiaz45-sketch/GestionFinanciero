@@ -16,6 +16,7 @@ import TransactionFormScreen from '../screens/transactions/TransactionFormScreen
 import SavingGoalsScreen from '../screens/savingGoals/SavingGoalsScreen';
 import BudgetsScreen from '../screens/budgets/BudgetsScreen';
 import RemindersScreen from '../screens/reminders/RemindersScreen';
+import CategoriesScreen from '../screens/categories/CategoriesScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -57,6 +58,7 @@ function SettingsStack() {
       <Stack.Screen name="SavingGoals" component={SavingGoalsScreen} options={{ title: 'Metas de Ahorro' }} />
       <Stack.Screen name="Budgets" component={BudgetsScreen} options={{ title: 'Presupuestos' }} />
       <Stack.Screen name="Reminders" component={RemindersScreen} options={{ title: 'Recordatorios' }} />
+      <Stack.Screen name="Categories" component={CategoriesScreen} options={{ title: 'Categorías' }} />
     </Stack.Navigator>
   );
 }

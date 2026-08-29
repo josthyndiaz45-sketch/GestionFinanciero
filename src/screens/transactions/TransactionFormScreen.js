@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform, KeyboardAvoidingView, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import DatePickerField from '../../components/DatePickerField';
@@ -7,7 +7,9 @@ import { useTheme } from '../../providers/ThemeContext';
 import { useAuth } from '../../providers/AuthContext';
 import { useTransactions } from '../../providers/TransactionContext';
 import { useTags } from '../../providers/TagContext';
-import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, PAYMENT_METHODS, TRANSACTION_TAGS, TAG_COLORS } from '../../constants/constants';
+import { useCategories } from '../../providers/CategoryContext';
+import { useAppAlert } from '../../providers/AlertContext';
+import { PAYMENT_METHODS, TRANSACTION_TAGS, TAG_COLORS } from '../../constants/constants';
 import { createNewTransaction } from '../../models/Transaction';
 
 export default function TransactionFormScreen({ navigation, route }) {
@@ -15,6 +17,8 @@ export default function TransactionFormScreen({ navigation, route }) {
   const { user } = useAuth();
   const { addTransaction, editTransaction } = useTransactions();
   const { getTag, setTag } = useTags();
+  const { getCategories } = useCategories();
+  const { showAlert } = useAppAlert();
   const existing = route.params?.transaction;
   const scrollRef = useRef(null);
 
@@ -42,20 +46,20 @@ export default function TransactionFormScreen({ navigation, route }) {
     return `${dd}/${mm}/${yyyy}`;
   }
 
-  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const categories = getCategories(type);
 
   const handleSave = async () => {
     Keyboard.dismiss();
     if (!amount || parseFloat(amount) <= 0) {
-      Alert.alert('Error', 'Ingresa un monto válido');
+      showAlert('Error', 'Por favor rellene los campos requeridos. Ingresa un monto válido.');
       return;
     }
     if (!category) {
-      Alert.alert('Error', 'Selecciona una categoría');
+      showAlert('Error', 'Por favor rellene los campos requeridos. Selecciona una categoría.');
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Error', 'Ingresa una descripción');
+      showAlert('Error', 'Por favor rellene los campos requeridos. Ingresa una descripción.');
       return;
     }
 
@@ -84,7 +88,7 @@ export default function TransactionFormScreen({ navigation, route }) {
       await setTag(savedTx.id, selectedTag);
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', e.message || 'No se pudo guardar');
+      showAlert('Error', e.message || 'No se pudo guardar');
     }
   };
 

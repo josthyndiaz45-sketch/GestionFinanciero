@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, Modal, ScrollView, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, ScrollView, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../providers/ThemeContext';
 import { useAuth } from '../../providers/AuthContext';
 import { useSavingGoals } from '../../providers/SavingGoalContext';
 import { useTransactions } from '../../providers/TransactionContext';
+import { useAppAlert } from '../../providers/AlertContext';
 import { formatCurrency } from '../../utils/formatters';
 import { createNewSavingGoal } from '../../models/SavingGoal';
 
@@ -80,6 +81,7 @@ export default function SavingGoalsScreen() {
   const { user } = useAuth();
   const { goals, loadGoals, addGoal, editGoal, removeGoal } = useSavingGoals();
   const { transactions } = useTransactions();
+  const { showAlert, showConfirm } = useAppAlert();
   const [showModal, setShowModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
   const [name, setName] = useState('');
@@ -114,7 +116,7 @@ export default function SavingGoalsScreen() {
 
   const handleSave = async () => {
     if (!name.trim() || !targetAmount || parseFloat(targetAmount) <= 0) {
-      Alert.alert('Error', 'Nombre y monto objetivo son requeridos');
+      showAlert('Error', 'Por favor rellena los campos requeridos: nombre y monto objetivo');
       return;
     }
     const data = {
@@ -134,19 +136,19 @@ export default function SavingGoalsScreen() {
       }
       setShowModal(false);
     } catch (e) {
-      Alert.alert('Error', e.message);
+      showAlert('Error', e.message);
     }
   };
 
   const handleAddFunds = async (goal) => {
     if (!addAmount || parseFloat(addAmount) <= 0) {
-      Alert.alert('Error', 'Ingresa un monto válido');
+      showAlert('Error', 'Por favor ingresa un monto válido');
       return;
     }
     const amt = parseFloat(addAmount);
     const newAmount = fundMode === 'add' ? goal.currentAmount + amt : goal.currentAmount - amt;
     if (newAmount < 0) {
-      Alert.alert('Error', 'No puedes revertir más de lo agregado');
+      showAlert('Error', 'No puedes revertir más de lo agregado');
       return;
     }
     try {
@@ -155,15 +157,12 @@ export default function SavingGoalsScreen() {
       setAddAmount('');
       setFundMode('add');
     } catch (e) {
-      Alert.alert('Error', e.message);
+      showAlert('Error', e.message);
     }
   };
 
   const handleDelete = (goal) => {
-    Alert.alert('Eliminar meta', `¿Eliminar "${goal.name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => removeGoal(goal.id) },
-    ]);
+    showConfirm('Eliminar meta', `¿Eliminar "${goal.name}"?`, () => removeGoal(goal.id));
   };
 
   const renderGoal = ({ item: goal }) => {

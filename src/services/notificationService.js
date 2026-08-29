@@ -19,6 +19,9 @@ const ALERT_TIMING_OPTIONS = [
 
 export { ALERT_TIMING_OPTIONS };
 
+const FIRE_HOUR = 9;
+const FIRE_MINUTE = 0;
+
 export async function setupNotifications() {
   if (Platform.OS === 'web') return;
   if (Platform.OS === 'android') {
@@ -47,23 +50,29 @@ export async function setupNotifications() {
   });
 }
 
-function getNextOccurrences(dayOfMonth, count) {
-  const dates = [];
+function isPaidForCurrentMonth(reminder) {
   const now = new Date();
-  let month = now.getMonth();
-  let year = now.getFullYear();
+  const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return (reminder.paidMonths || []).includes(key);
+}
 
-  while (dates.length < count) {
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    const safeDay = Math.min(dayOfMonth, lastDay);
-    const d = new Date(year, month, safeDay, 8, 0, 0);
-    if (d > now) {
-      dates.push(d);
-    }
-    month++;
-    if (month > 11) { month = 0; year++; }
-  }
-  return dates;
+function clampDay(year, month, day) {
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return Math.min(day, lastDay);
+}
+
+function nextDueClamped(dayOfMonth) {
+  const now = new Date();
+  const due = new Date(now.getFullYear(), now.getMonth(), clampDay(now.getFullYear(), now.getMonth(), dayOfMonth), FIRE_HOUR, FIRE_MINUTE, 0);
+  return due;
+}
+
+function buildContent(reminder, alertDays) {
+  const title = alertDays > 0
+    ? `Recordatorio en ${alertDays} día${alertDays > 1 ? 's' : ''}`
+    : 'Recordatorio de pago hoy';
+  const body = `${reminder.name} - ${reminder.amount > 0 ? `S/ ${reminder.amount.toFixed(2)}` : ''}${reminder.note ? ` · ${reminder.note}` : ''}`;
+  return { title, body, data: { reminderId: reminder.id } };
 }
 
 export async function scheduleReminderNotifications(reminder) {
@@ -74,39 +83,65 @@ export async function scheduleReminderNotifications(reminder) {
 
   await cancelReminderNotifications(reminder);
 
-  const maxMonth = reminder.endYear ? reminder.endYear : new Date().getFullYear() + 2;
+  if (isPaidForCurrentMonth(reminder)) {
+    return [];
+  }
+
   const now = new Date();
-  const totalMonths = ((maxMonth - now.getFullYear()) * 12) + 12;
-  const occurrences = getNextOccurrences(reminder.dayOfMonth, Math.min(totalMonths, 36));
+  const dueDate = nextDueClamped(reminder.dayOfMonth);
+  const alertStart = new Date(dueDate);
+  alertStart.setDate(alertStart.getDate() - alertDays);
+  alertStart.setHours(FIRE_HOUR, FIRE_MINUTE, 0, 0);
 
+  const content = buildContent(reminder, alertDays);
   const ids = [];
-  for (const dueDate of occurrences) {
-    const triggerDate = new Date(dueDate);
-    triggerDate.setDate(triggerDate.getDate() - alertDays);
-    triggerDate.setHours(9, 0, 0, 0);
 
-    if (triggerDate <= new Date()) continue;
-
-    const title = alertDays > 0
-      ? `Recordatorio en ${alertDays} día${alertDays > 1 ? 's' : ''}`
-      : 'Recordatorio de pago hoy';
-    const body = `${reminder.name} - ${reminder.amount > 0 ? `S/ ${reminder.amount.toFixed(2)}` : ''}${reminder.note ? ` · ${reminder.note}` : ''}`;
-
-    try {
-      const id = await Notifications.scheduleNotificationAsync({
-        content: { title, body, data: { reminderId: reminder.id } },
+  try {
+    let id;
+    if (alertStart <= now) {
+      id = await Notifications.scheduleNotificationAsync({
+        content,
         trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: triggerDate,
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: FIRE_HOUR,
+          minute: FIRE_MINUTE,
           channelId: soundOpt.channelId,
         },
       });
-      ids.push(id);
+    } else {
+      id = await Notifications.scheduleNotificationAsync({
+        content,
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: alertStart,
+          channelId: soundOpt.channelId,
+        },
+      });
+    }
+    ids.push(id);
+  } catch (e) {
+    console.warn('Failed to schedule notification:', e);
+  }
+
+  return ids;
+}
+
+export async function syncRemindersNotifications(reminders) {
+  if (Platform.OS === 'web') return [];
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return [];
+  const results = [];
+  for (const r of reminders || []) {
+    try {
+      const ids = await scheduleReminderNotifications(r);
+      if (ids && ids.length > 0) {
+        results.push({ reminderId: r.id, ids });
+      }
     } catch (e) {
-      console.warn('Failed to schedule notification:', e);
+      console.warn('Failed to sync reminders:', e);
     }
   }
-  return ids;
+  return results;
 }
 
 export async function cancelReminderNotifications(reminder) {

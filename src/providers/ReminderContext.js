@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import * as reminderService from '../services/reminderService';
+import { syncRemindersNotifications } from '../services/notificationService';
 
 const ReminderContext = createContext();
 
@@ -15,6 +16,15 @@ export function ReminderProvider({ children }) {
     try {
       const data = await reminderService.getReminders(user.id);
       setReminders(data);
+      const synced = await syncRemindersNotifications(data);
+      if (synced.length > 0) {
+        setReminders((prev) =>
+          prev.map((r) => {
+            const match = synced.find((s) => s.reminderId === r.id);
+            return match ? { ...r, notificationIds: match.ids } : r;
+          })
+        );
+      }
     } catch (e) {
       console.error('Error loading reminders:', e);
     } finally {

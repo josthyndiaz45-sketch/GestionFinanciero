@@ -2,12 +2,14 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../providers/ThemeContext';
+import { useCategories } from '../providers/CategoryContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { getCategoryInfo } from '../constants/constants';
 
 export default function TransactionTile({ transaction, onPress, onDelete }) {
   const { theme } = useTheme();
-  const cat = getCategoryInfo(transaction.category, transaction.type);
+  const { getCategories } = useCategories();
+  const list = transaction.type === 'income' ? getCategories('income') : getCategories('expense');
+  const cat = list.find((c) => c.name === transaction.category) || { name: 'otros', label: 'Otros', color: '#6B7280', icon: 'pricetag-outline' };
   const isIncome = transaction.type === 'income';
 
   return (

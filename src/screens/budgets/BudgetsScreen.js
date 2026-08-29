@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Alert, TextInput, Modal, TouchableOpacity, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, Modal, TouchableOpacity, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../providers/ThemeContext';
 import { useAuth } from '../../providers/AuthContext';
 import { useBudgets } from '../../providers/BudgetContext';
 import { useTransactions } from '../../providers/TransactionContext';
-import { EXPENSE_CATEGORIES } from '../../constants/constants';
+import { useCategories } from '../../providers/CategoryContext';
+import { useAppAlert } from '../../providers/AlertContext';
 import { formatCurrency } from '../../utils/formatters';
 import { createNewBudget } from '../../models/Budget';
 
@@ -15,6 +16,8 @@ export default function BudgetsScreen() {
   const { user } = useAuth();
   const { budgets, loadBudgets, addBudget, editBudget, removeBudget } = useBudgets();
   const { transactions, loadTransactions } = useTransactions();
+  const { getCategories } = useCategories();
+  const { showAlert, showConfirm } = useAppAlert();
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [category, setCategory] = useState('');
@@ -22,6 +25,8 @@ export default function BudgetsScreen() {
   const [month, setMonth] = useState(String(new Date().getMonth() + 1));
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [showCatPicker, setShowCatPicker] = useState(false);
+
+  const expenseCategories = getCategories('expense');
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
@@ -62,14 +67,18 @@ export default function BudgetsScreen() {
   };
 
   const handleSave = async () => {
-    if (!category) { Alert.alert('Error', 'Selecciona una categoría'); return; }
-    if (!monthlyLimit || parseFloat(monthlyLimit) <= 0) { Alert.alert('Error', 'Ingresa un límite válido'); return; }
+    if (!category) { showAlert('Error', 'Por favor selecciona una categoría antes de guardar'); return; }
+    if (!monthlyLimit || parseFloat(monthlyLimit) <= 0) { showAlert('Error', 'Por favor ingresa un límite válido antes de guardar'); return; }
+    const monthInt = parseInt(month);
+    const yearInt = parseInt(year);
+    if (!monthInt || monthInt < 1 || monthInt > 12) { showAlert('Error', 'Por favor ingresa un mes válido (1-12)'); return; }
+    if (!yearInt || yearInt < 2000) { showAlert('Error', 'Por favor ingresa un año válido'); return; }
     const data = {
       userId: user.id,
       category,
       monthlyLimit: parseFloat(monthlyLimit),
-      month: parseInt(month),
-      year: parseInt(year),
+      month: monthInt,
+      year: yearInt,
     };
     try {
       if (editing) {
@@ -82,20 +91,20 @@ export default function BudgetsScreen() {
       setShowModal(false);
       loadBudgets(currentMonth, currentYear);
     } catch (e) {
-      Alert.alert('Error', e.message);
+      showAlert('Error', e.message);
     }
   };
 
   const handleDelete = (b) => {
-    const cat = EXPENSE_CATEGORIES.find((c) => c.name === b.category);
-    Alert.alert('Eliminar presupuesto', `¿Eliminar presupuesto de ${cat?.label || b.category}?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => { await removeBudget(b.id); loadBudgets(currentMonth, currentYear); } },
-    ]);
+    const cat = expenseCategories.find((c) => c.name === b.category);
+    showConfirm('Eliminar presupuesto', `¿Eliminar presupuesto de ${cat?.label || b.category}?`, async () => {
+      await removeBudget(b.id);
+      loadBudgets(currentMonth, currentYear);
+    });
   };
 
   const renderBudget = ({ item: b }) => {
-    const cat = EXPENSE_CATEGORIES.find((c) => c.name === b.category) || { label: b.category, color: '#6B7280', icon: 'ellipsis-horizontal-outline' };
+    const cat = expenseCategories.find((c) => c.name === b.category) || { label: b.category, color: '#6B7280', icon: 'ellipsis-horizontal-outline' };
     const spent = getSpent(b.category);
     const pct = b.monthlyLimit > 0 ? Math.min((spent / b.monthlyLimit) * 100, 100) : 0;
     const barColor = getBarColor(pct);
@@ -151,12 +160,12 @@ export default function BudgetsScreen() {
 
             <TouchableOpacity style={[styles.input, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]} onPress={() => setShowCatPicker(!showCatPicker)}>
               <Text style={{ color: category ? theme.colors.text : theme.colors.textSecondary }}>
-                {category ? EXPENSE_CATEGORIES.find((c) => c.name === category)?.label : 'Seleccionar categoría'}
+                {category ? expenseCategories.find((c) => c.name === category)?.label : 'Seleccionar categoría'}
               </Text>
             </TouchableOpacity>
             {showCatPicker && (
               <View style={[styles.catPicker, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-                {EXPENSE_CATEGORIES.map((c) => (
+                {expenseCategories.map((c) => (
                   <TouchableOpacity key={c.name} style={[styles.catItem, { borderBottomColor: theme.colors.border }]} onPress={() => { setCategory(c.name); setShowCatPicker(false); }}>
                     <Ionicons name={c.icon} size={16} color={c.color} />
                     <Text style={{ marginLeft: 8, color: theme.colors.text }}>{c.label}</Text>

@@ -6,8 +6,9 @@ import CalendarDatePicker from '../../components/CalendarDatePicker';
 import { useTheme } from '../../providers/ThemeContext';
 import { useAuth } from '../../providers/AuthContext';
 import { useTransactions } from '../../providers/TransactionContext';
+import { useBalance } from '../../providers/BalanceContext';
+import { useCategories } from '../../providers/CategoryContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-import { EXPENSE_CATEGORIES } from '../../constants/constants';
 
 const TABS = [
   { key: 'dia', label: 'Día' },
@@ -93,6 +94,9 @@ export default function StatisticsScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { transactions, loadTransactions } = useTransactions();
+  const { initialBalance } = useBalance();
+  const { getCategories } = useCategories();
+  const expenseCategories = getCategories('expense');
   const [activeTab, setActiveTab] = useState('mes');
   const [anchor, setAnchor] = useState(new Date());
   const [showCustom, setShowCustom] = useState(false);
@@ -116,6 +120,10 @@ export default function StatisticsScreen() {
   const totalExpense = filtered.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const net = totalIncome - totalExpense;
 
+  const allIncome = transactions.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const allExpense = transactions.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const currentBalance = initialBalance + allIncome - allExpense;
+
   const incomePct = pctChange(totalIncome, prevComp.prevIncome);
   const expensePct = pctChange(totalExpense, prevComp.prevExpense);
   const netPct = pctChange(net, prevComp.prevNet);
@@ -126,7 +134,7 @@ export default function StatisticsScreen() {
 
   const diffDays = Math.max(1, Math.ceil((currentRange.end - currentRange.start) / (1000 * 60 * 60 * 24)));
   const dailyAvg = totalExpense / diffDays;
-  const topCat = sortedCategories.length > 0 ? EXPENSE_CATEGORIES.find((c) => c.name === sortedCategories[0][0]) : null;
+  const topCat = sortedCategories.length > 0 ? expenseCategories.find((c) => c.name === sortedCategories[0][0]) : null;
 
   const prevMonthName = MONTH_NAMES[prevComp.prevStart.getMonth()];
   const currMonthName = MONTH_NAMES[currentRange.start.getMonth()];
@@ -157,6 +165,17 @@ export default function StatisticsScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Estadísticas</Text>
+
+        <View style={[styles.balanceCard, { backgroundColor: theme.colors.primary }]}>
+          <View style={styles.balanceTop}>
+            <Text style={styles.balanceLabel}>Saldo actual</Text>
+            <Ionicons name="wallet-outline" size={20} color="rgba(255,255,255,0.7)" />
+          </View>
+          <Text style={styles.balance}>{formatCurrency(currentBalance)}</Text>
+          {initialBalance > 0 && (
+            <Text style={styles.balanceSub}>Incluye saldo inicial: {formatCurrency(initialBalance)}</Text>
+          )}
+        </View>
 
         <View style={styles.tabRow}>
           {TABS.map((tab) => (
@@ -282,7 +301,7 @@ export default function StatisticsScreen() {
           <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>Sin gastos en este período</Text>
         ) : (
           sortedCategories.map(([catName, amount]) => {
-            const cat = EXPENSE_CATEGORIES.find((c) => c.name === catName) || { label: catName, color: '#6B7280', icon: 'ellipsis-horizontal-outline' };
+            const cat = expenseCategories.find((c) => c.name === catName) || { label: catName, color: '#6B7280', icon: 'ellipsis-horizontal-outline' };
             const pct = (amount / maxExpense) * 100;
             return (
               <View key={catName} style={[styles.catRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
@@ -360,6 +379,11 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: 20, paddingBottom: 40 },
   title: { fontSize: 28, fontWeight: 'bold', marginBottom: 16 },
+  balanceCard: { padding: 20, borderRadius: 20, marginBottom: 16 },
+  balanceTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  balanceLabel: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
+  balance: { fontSize: 34, fontWeight: 'bold', color: '#FFF', marginTop: 8 },
+  balanceSub: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
   tabRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, backgroundColor: '#E5E7EB' },
   tabText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
