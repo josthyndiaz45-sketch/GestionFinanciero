@@ -25,7 +25,7 @@ function HomeStack() {
   const { theme } = useTheme();
   return (
     <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: theme.colors.card, elevation: 0, shadowOpacity: 0 }, headerTintColor: theme.colors.text }}>
-      <Stack.Screen name="HomeMain" component={HomeScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="TransactionForm" component={TransactionFormScreen} options={{ title: 'Movimiento' }} />
     </Stack.Navigator>
   );
