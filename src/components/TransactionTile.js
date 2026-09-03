@@ -14,7 +14,7 @@ export default function TransactionTile({ transaction, onPress, onDelete }) {
 
   return (
     <TouchableOpacity style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.iconContainer, { backgroundColor: cat.color + '20' }]}>
+      <View style={[styles.iconContainer, { backgroundColor: cat.color + '1A' }]}>
         <Ionicons name={cat.icon} size={22} color={cat.color} />
       </View>
       <View style={styles.info}>
@@ -22,7 +22,7 @@ export default function TransactionTile({ transaction, onPress, onDelete }) {
         <Text style={[styles.category, { color: theme.colors.textSecondary }]} numberOfLines={1}>{cat.label} • {formatDateTime(transaction.date)}</Text>
       </View>
       <View style={styles.rightSection}>
-        <Text style={[styles.amount, { color: isIncome ? '#10B981' : '#F43F5E' }]}>
+        <Text style={[styles.amount, { color: isIncome ? theme.colors.income : theme.colors.expense }]}>
           {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
         </Text>
         {onDelete && (
@@ -36,11 +36,11 @@ export default function TransactionTile({ transaction, onPress, onDelete }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 8 },
-  iconContainer: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  container: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
+  iconContainer: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   info: { flex: 1 },
   description: { fontSize: 15, fontWeight: '600' },
-  category: { fontSize: 12, marginTop: 2 },
+  category: { fontSize: 12, marginTop: 3 },
   rightSection: { alignItems: 'flex-end', gap: 4 },
   amount: { fontSize: 15, fontWeight: 'bold' },
   deleteBtn: { padding: 2 },

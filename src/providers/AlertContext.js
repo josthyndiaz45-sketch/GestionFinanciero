@@ -58,9 +58,9 @@ export function useAppAlert() {
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  card: { width: '100%', maxWidth: 340, borderRadius: 20, padding: 24 },
+  card: { width: '100%', maxWidth: 340, borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 12 },
   title: { fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
   message: { fontSize: 14, lineHeight: 20, marginBottom: 20 },
   actions: { flexDirection: 'row', gap: 12 },
-  btn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  btn: { flex: 1, paddingVertical: 13, borderRadius: 14, alignItems: 'center' },
 });

@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/monoicon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#4F46E5"
+      "backgroundColor": "#2563EB"
     },
     "ios": {
       "supportsTablet": true,
@@ -20,7 +20,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#4F46E5",
+        "backgroundColor": "#2563EB",
         "foregroundImage": "./assets/monoicon.png"
       },
       "package": "com.josthyndiaz.GestionFinanciero"
@@ -34,7 +34,7 @@
         "expo-notifications",
         {
           "icon": "./assets/monoicon.png",
-          "color": "#4F46E5"
+          "color": "#2563EB"
         }
       ]
     ],

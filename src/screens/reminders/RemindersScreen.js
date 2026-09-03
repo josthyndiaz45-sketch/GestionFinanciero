@@ -9,26 +9,36 @@ import { formatCurrency } from '../../utils/formatters';
 import { createReminderTemplate } from '../../services/reminderService';
 import { scheduleReminderNotifications, cancelReminderNotifications, SOUND_OPTIONS, ALERT_TIMING_OPTIONS } from '../../services/notificationService';
 
-function getNextDueDate(dayOfMonth) {
-  const now = new Date();
-  const today = now.getDate();
-  const month = today <= dayOfMonth ? now.getMonth() : now.getMonth() + 1;
-  const year = month > 11 ? now.getFullYear() + 1 : now.getFullYear();
-  return new Date(year, month % 12, dayOfMonth);
+function getMonthKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function clampDay(year, month, day) {
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return Math.min(day, lastDay);
 }
 
 function isPaidForCurrentMonth(r) {
+  return (r.paidMonths || []).includes(getMonthKey(new Date()));
+}
+
+function isOverdue(r) {
+  if (isPaidForCurrentMonth(r)) return false;
   const now = new Date();
-  const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  return (r.paidMonths || []).includes(key);
+  const thisMonthDue = clampDay(now.getFullYear(), now.getMonth(), r.dayOfMonth || 1);
+  return now.getDate() > thisMonthDue;
 }
 
 function daysUntilDue(dayOfMonth) {
-  const next = getNextDueDate(dayOfMonth);
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  next.setHours(0, 0, 0, 0);
-  return Math.ceil((next - now) / (1000 * 60 * 60 * 24));
+  const today = now.getDate();
+  const due = clampDay(now.getFullYear(), now.getMonth(), dayOfMonth);
+  if (today <= due) {
+    return due - today;
+  }
+  const nextDue = clampDay(now.getFullYear(), now.getMonth() + 1, dayOfMonth);
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return (daysInMonth - today) + nextDue;
 }
 
 function dueLabel(days) {
@@ -37,7 +47,8 @@ function dueLabel(days) {
   return `Vence en ${days} días`;
 }
 
-function dueColor(days) {
+function dueColor(days, overdue) {
+  if (overdue) return '#F43F5E';
   if (days <= 0) return '#F43F5E';
   if (days <= 3) return '#F59E0B';
   return '#10B981';
@@ -161,12 +172,13 @@ export default function RemindersScreen() {
         }
         renderItem={({ item: r }) => {
           const days = daysUntilDue(r.dayOfMonth);
-          const dColor = dueColor(days);
           const paid = isPaidForCurrentMonth(r);
+          const overdue = isOverdue(r);
+          const dColor = dueColor(days, overdue);
           const soundLabel = SOUND_OPTIONS.find((s) => s.id === r.sound)?.label || 'Predeterminado';
           const alertLabel = ALERT_TIMING_OPTIONS.find((a) => a.id === r.alertTiming)?.label || 'El mismo día';
           return (
-            <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.border, opacity: paid ? 0.5 : 1 }]}>
+            <View style={[styles.card, { backgroundColor: theme.colors.card, opacity: paid ? 0.5 : 1, borderColor: overdue ? '#F43F5E' : theme.colors.border }]}>
               <View style={styles.cardLeft}>
                 <TouchableOpacity onPress={() => handleTogglePaid(r)} style={[styles.checkBtn, { borderColor: paid ? '#10B981' : theme.colors.border, backgroundColor: paid ? '#10B981' : 'transparent' }]}>
                   {paid && <Ionicons name="checkmark" size={14} color="#FFF" />}
@@ -174,7 +186,9 @@ export default function RemindersScreen() {
               </View>
               <View style={styles.cardInfo}>
                 <Text style={[styles.cardName, { color: theme.colors.text, textDecorationLine: paid ? 'line-through' : 'none' }]}>{r.name}</Text>
-                <Text style={[styles.cardDue, { color: dColor }]}>{paid ? 'Pagado este mes' : dueLabel(days)}</Text>
+                <Text style={[styles.cardDue, { color: dColor }]}>
+                  {paid ? 'Pagado este mes' : overdue ? 'Vencido' : dueLabel(days)}
+                </Text>
                 <Text style={[styles.cardRepeat, { color: theme.colors.textSecondary }]}>
                   Cada mes día {r.dayOfMonth}{r.indefinite ? ' · Sin fecha de fin' : r.endYear ? ` · Hasta ${r.endYear}` : ''}
                 </Text>

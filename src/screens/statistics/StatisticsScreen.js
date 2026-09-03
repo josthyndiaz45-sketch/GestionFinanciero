@@ -8,7 +8,7 @@ import { useAuth } from '../../providers/AuthContext';
 import { useTransactions } from '../../providers/TransactionContext';
 import { useBalance } from '../../providers/BalanceContext';
 import { useCategories } from '../../providers/CategoryContext';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
 
 const TABS = [
   { key: 'dia', label: 'Día' },
@@ -104,6 +104,7 @@ export default function StatisticsScreen() {
   const [customEnd, setCustomEnd] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   useEffect(() => { if (user) loadTransactions(); }, [user]);
 
@@ -160,6 +161,25 @@ export default function StatisticsScreen() {
   };
 
   const hasData = filtered.length > 0;
+
+  const selectedCatInfo = selectedCategory ? (expenseCategories.find((c) => c.name === selectedCategory) || { label: selectedCategory, color: '#6B7280', icon: 'ellipsis-horizontal-outline' }) : null;
+  const selectedTx = selectedCategory
+    ? transactions
+        .filter((t) => t.type === 'expense' && t.category === selectedCategory)
+        .slice()
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+    : [];
+  const selectedTotal = selectedTx.reduce((s, t) => s + t.amount, 0);
+  const selectedByMonth = selectedTx.reduce((acc, tx) => {
+    const d = new Date(tx.date);
+    const m = d.getMonth();
+    const y = d.getFullYear();
+    const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+    if (!acc[key]) acc[key] = { label: `${MONTH_NAMES[m]} ${y}`, month: m, year: y, items: [] };
+    acc[key].items.push(tx);
+    return acc;
+  }, {});
+  const selectedMonthKeys = Object.keys(selectedByMonth).sort((a, b) => b.localeCompare(a));
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -304,7 +324,12 @@ export default function StatisticsScreen() {
             const cat = expenseCategories.find((c) => c.name === catName) || { label: catName, color: '#6B7280', icon: 'ellipsis-horizontal-outline' };
             const pct = (amount / maxExpense) * 100;
             return (
-              <View key={catName} style={[styles.catRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+              <TouchableOpacity
+                key={catName}
+                style={[styles.catRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+                onPress={() => setSelectedCategory(catName)}
+                activeOpacity={0.7}
+              >
                 <View style={[styles.catIcon, { backgroundColor: cat.color + '20' }]}>
                   <Ionicons name={cat.icon} size={18} color={cat.color} />
                 </View>
@@ -317,7 +342,8 @@ export default function StatisticsScreen() {
                     <View style={[styles.catBarFill, { width: `${pct}%`, backgroundColor: cat.color }]} />
                   </View>
                 </View>
-              </View>
+                <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
             );
           })
         )}
@@ -371,6 +397,66 @@ export default function StatisticsScreen() {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={!!selectedCategory} transparent animationType="slide" onRequestClose={() => setSelectedCategory(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.detailModal, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.detailHeader}>
+              <View style={[styles.detailIconBox, { backgroundColor: (selectedCatInfo?.color || '#6B7280') + '20' }]}>
+                <Ionicons name={selectedCatInfo?.icon || 'pricetag-outline'} size={20} color={selectedCatInfo?.color || '#6B7280'} />
+              </View>
+              <View style={styles.detailHeaderInfo}>
+                <Text style={[styles.detailTitle, { color: theme.colors.text }]}>{selectedCatInfo?.label}</Text>
+                <Text style={[styles.detailTotal, { color: theme.colors.textSecondary }]}>
+                  Total de todos: {formatCurrency(selectedTotal)} · {selectedTx.length} {selectedTx.length === 1 ? 'gasto' : 'gastos'}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setSelectedCategory(null)} style={styles.detailClose}>
+                <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedTx.length === 0 ? (
+              <View style={styles.detailEmpty}>
+                <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No hay gastos en esta categoría</Text>
+              </View>
+            ) : (
+              <ScrollView style={styles.detailList} showsVerticalScrollIndicator={false}>
+              {selectedMonthKeys.map((monthKey) => {
+                const group = selectedByMonth[monthKey];
+                const groupTotal = group.items.reduce((s, t) => s + t.amount, 0);
+                return (
+                  <View key={monthKey} style={styles.detailMonthGroup}>
+                    <View style={[styles.detailMonthHeader, { borderBottomColor: theme.colors.border }]}>
+                      <Text style={[styles.detailMonthTitle, { color: theme.colors.text }]}>{group.label}</Text>
+                      <Text style={[styles.detailMonthTotal, { color: theme.colors.textSecondary }]}>{formatCurrency(groupTotal)}</Text>
+                    </View>
+                    {group.items.map((tx) => {
+                      const d = new Date(tx.date);
+                      return (
+                        <View key={tx.id} style={[styles.detailItem, { borderBottomColor: theme.colors.border }]}>
+                          <View style={styles.detailItemLeft}>
+                            <View style={styles.detailDescRow}>
+                              <Text style={[styles.detailDesc, { color: theme.colors.text }]} numberOfLines={1}>{tx.description}</Text>
+                            </View>
+                            <Text style={[styles.detailDate, { color: theme.colors.textSecondary }]}>
+                              {formatDateTime(tx.date)}
+                            </Text>
+                            {tx.paymentMethod ? <Text style={[styles.detailMeta, { color: theme.colors.textSecondary }]}>{tx.paymentMethod}</Text> : null}
+                            {tx.note ? <Text style={[styles.detailMeta, { color: theme.colors.textSecondary }]} numberOfLines={2}>{tx.note}</Text> : null}
+                          </View>
+                          <Text style={[styles.detailAmount, { color: '#F43F5E' }]}>-{formatCurrency(tx.amount)}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              })}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -379,11 +465,11 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: 20, paddingBottom: 40 },
   title: { fontSize: 28, fontWeight: 'bold', marginBottom: 16 },
-  balanceCard: { padding: 20, borderRadius: 20, marginBottom: 16 },
+  balanceCard: { padding: 22, borderRadius: 24, marginBottom: 16, backgroundColor: '#2563EB', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 8 },
   balanceTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  balanceLabel: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
-  balance: { fontSize: 34, fontWeight: 'bold', color: '#FFF', marginTop: 8 },
-  balanceSub: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
+  balanceLabel: { fontSize: 14, color: 'rgba(255,255,255,0.85)' },
+  balance: { fontSize: 34, fontWeight: 'bold', color: '#FFF', marginTop: 8, letterSpacing: 0.5 },
+  balanceSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
   tabRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, backgroundColor: '#E5E7EB' },
   tabText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
@@ -435,6 +521,26 @@ const styles = StyleSheet.create({
   compBarPair: { flexDirection: 'row', height: 12, borderRadius: 6, overflow: 'hidden', gap: 3 },
   compBar: { borderRadius: 6 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 },
+  detailModal: { borderRadius: 20, padding: 20, maxHeight: '80%' },
+  detailList: { flexGrow: 0 },
+  detailHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  detailIconBox: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  detailHeaderInfo: { flex: 1 },
+  detailTitle: { fontSize: 18, fontWeight: 'bold' },
+  detailTotal: { fontSize: 13, marginTop: 2 },
+  detailClose: { padding: 4 },
+  detailEmpty: { alignItems: 'center', paddingVertical: 40 },
+  detailMonthGroup: { marginBottom: 8 },
+  detailMonthHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, marginTop: 4 },
+  detailMonthTitle: { fontSize: 14, fontWeight: 'bold', textTransform: 'uppercase' },
+  detailMonthTotal: { fontSize: 13, fontWeight: '600' },
+  detailItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 0.5 },
+  detailItemLeft: { flex: 1, paddingRight: 12 },
+  detailDescRow: { flexDirection: 'row', alignItems: 'center' },
+  detailDesc: { fontSize: 15, fontWeight: '600' },
+  detailDate: { fontSize: 12, marginTop: 2 },
+  detailMeta: { fontSize: 12, marginTop: 2, fontStyle: 'italic' },
+  detailAmount: { fontSize: 15, fontWeight: 'bold' },
   modalBox: { borderRadius: 20, padding: 24 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
   modalHint: { fontSize: 12, fontWeight: '500', marginBottom: 6, marginTop: 4 },

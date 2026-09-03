@@ -80,7 +80,19 @@ function TabNavigator() {
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSecondary,
-        tabBarStyle: { backgroundColor: theme.colors.card, borderTopColor: theme.colors.border, height: 60, paddingBottom: 8 },
+        tabBarStyle: {
+          backgroundColor: theme.colors.card,
+          borderTopColor: theme.colors.border,
+          borderTopWidth: 1,
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 6,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.05,
+          shadowRadius: 12,
+          elevation: 10,
+        },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       })}
     >
