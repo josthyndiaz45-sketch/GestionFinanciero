@@ -175,6 +175,31 @@ Timezone: America/Lima
 
 ---
 
+## 📝 Recordatorio diario de "registrar movimientos" (web push)
+
+Si **no registraste ningún movimiento en todo el día**, cada noche se te envía una notificación para que anotes tus gastos/ingresos. Si tuviste al menos un movimiento ese día, no llega nada.
+
+1. Despliega la función (requiere los mismos secrets de VAPID de las notificaciones web):
+
+```bash
+npx supabase functions deploy movement-reminder
+```
+
+2. Programa el cron diario en **Edge Functions → movement-reminder → Schedules**:
+
+```
+Cron: 30 20 * * *
+Timezone: America/Lima
+```
+
+Eso envía el aviso cada día a las **20:30** (hora de Perú).
+
+3. **Probar desde la app**: en **Configuración → General → "Notificación de prueba"** se envía al instante una notificación web a tu sesión para comprobar que todo funciona (solo en navegador con permiso de notificaciones activado).
+
+> El botón de prueba invoca la función en modo `{ mode: 'test', userId }`; el cron diario la invoca sin cuerpo (modo `daily`). Ambos envían solo a suscripciones web registradas (`push_subscriptions`).
+
+---
+
 ## 🗂️ Estructura
 
 ```
@@ -194,6 +219,7 @@ public/
 supabase/
   functions/
     send-reminders/   # Edge Function de recordatorios (push + email)
+    movement-reminder/ # Edge Function de aviso diario si no hubo movimientos (push)
   sql/
     push_subscriptions.sql
 ```

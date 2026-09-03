@@ -2,3 +2,6 @@ project_id = "ixqyhttyvclloedjcqxx"
 
 [functions.send-reminders]
 verify_jwt = false
+
+[functions.movement-reminder]
+verify_jwt = false

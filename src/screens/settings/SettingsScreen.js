@@ -9,6 +9,7 @@ import { useBalance } from '../../providers/BalanceContext';
 import { useAppAlert } from '../../providers/AlertContext';
 import { signOut } from '../../services/authService';
 import { formatCurrency } from '../../utils/formatters';
+import { sendTestMovementNotification } from '../../services/movementReminderService';
 
 export default function SettingsScreen({ navigation }) {
   const { theme, isDark, toggleTheme } = useTheme();
@@ -30,6 +31,27 @@ export default function SettingsScreen({ navigation }) {
     }
     await updateInitialBalance(val);
     setShowBalanceModal(false);
+  };
+
+  const [testingNotif, setTestingNotif] = useState(false);
+
+  const handleTestNotification = async () => {
+    if (testingNotif) return;
+    setTestingNotif(true);
+    try {
+      const res = await sendTestMovementNotification(user?.id);
+      if (!res.supported) {
+        showAlert('Notificación de prueba', res.reason || 'No disponible');
+      } else if (res.sent > 0) {
+        showAlert('Notificación de prueba', 'Se envió la notificación. Revisa si te llegó en el navegador.');
+      } else {
+        showAlert('Notificación de prueba', 'No se pudo enviar. Asegúrate de haber aceptado el permiso de notificaciones del navegador.');
+      }
+    } catch (e) {
+      showAlert('Error', `No se pudo enviar la notificación de prueba.\n\nDetalle: ${e?.message || String(e)}`);
+    } finally {
+      setTestingNotif(false);
+    }
   };
 
   const Section = ({ title, children }) => (
@@ -83,6 +105,12 @@ export default function SettingsScreen({ navigation }) {
             icon="moon-outline"
             label="Modo oscuro"
             right={<Switch value={isDark} onValueChange={toggleTheme} trackColor={{ false: '#D1D5DB', true: theme.colors.primary + '80' }} thumbColor={isDark ? theme.colors.primary : '#F3F4F6'} />}
+          />
+          <Row
+            icon="paper-plane-outline"
+            label="Notificación de prueba"
+            onPress={handleTestNotification}
+            right={testingNotif ? <Text style={[styles.rowValue, { color: theme.colors.textSecondary }]}>Enviando…</Text> : null}
           />
         </Section>
 

@@ -1,7 +1,8 @@
 import { Platform } from 'react-native';
 import { supabase } from '../config/supabase';
 
-const VAPID_PUBLIC_KEY = 'BAEdvfyH0YMVHkmWjbsFoyCZdTJ35v_wDvMxjtPl67AxXQl9awI_guN-Yn-XHpxC-LNgR1JzFp7Wcwz3gMKwmCQ';
+const VAPID_PUBLIC_KEY = 'BN2bkG_ngdmUumPrisTUjYjvJX_5nGRIV3C_uvfHCKFF4ZVYxXE-If4oiaKjNRTiJdQjDWNSJcDPGBVwJYU8Q2w';
+const VAPID_KEY_STORAGE = 'gestion_financiero_vapid_key';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -40,6 +41,15 @@ export async function registerWebPush(userId) {
 
   try {
     let subscription = await registration.pushManager.getSubscription();
+
+    // Si la llave VAPID cambió, la suscripción existente ya no es válida: re-suscribir
+    const storedKey = typeof localStorage !== 'undefined' ? localStorage.getItem(VAPID_KEY_STORAGE) : null;
+    const keyChanged = !!subscription && storedKey !== null && storedKey !== VAPID_PUBLIC_KEY;
+    if (keyChanged && subscription) {
+      try { await subscription.unsubscribe(); } catch (_) {}
+      subscription = null;
+    }
+
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -47,6 +57,7 @@ export async function registerWebPush(userId) {
       });
     }
     if (!subscription) return;
+    if (typeof localStorage !== 'undefined') localStorage.setItem(VAPID_KEY_STORAGE, VAPID_PUBLIC_KEY);
     await saveSubscription(userId, subscription);
   } catch (e) {
     console.warn('Push subscribe failed:', e);
