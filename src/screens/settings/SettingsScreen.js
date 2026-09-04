@@ -10,7 +10,8 @@ import { useAppAlert } from '../../providers/AlertContext';
 import { signOut } from '../../services/authService';
 import { formatCurrency } from '../../utils/formatters';
 import { sendTestMovementNotification } from '../../services/movementReminderService';
-import ExportImportPanel from './ExportImportPanel';
+import ExportPanel from './ExportPanel';
+import ImportPanel from './ImportPanel';
 
 export default function SettingsScreen({ navigation }) {
   const { theme, isDark, toggleTheme } = useTheme();
@@ -19,7 +20,8 @@ export default function SettingsScreen({ navigation }) {
   const { showAlert, showConfirm } = useAppAlert();
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [balanceInput, setBalanceInput] = useState(String(initialBalance));
-  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const handleLogout = () => {
     showConfirm('Cerrar sesión', '¿Estás seguro?', () => signOut(), 'Cerrar sesión');
@@ -117,7 +119,8 @@ export default function SettingsScreen({ navigation }) {
         </Section>
 
         <Section title="Más">
-          <Row icon="swap-vertical-outline" label="Exportar / Importar" onPress={() => setShowTransferModal(true)} />
+          <Row icon="download-outline" label="Exportar" onPress={() => setShowExportModal(true)} />
+          <Row icon="upload-outline" label="Importar" onPress={() => setShowImportModal(true)} />
         </Section>
 
         <Section title="Seguridad">
@@ -170,17 +173,33 @@ export default function SettingsScreen({ navigation }) {
         </View>
       </Modal>
 
-      <Modal visible={showTransferModal} transparent animationType="slide" onRequestClose={() => setShowTransferModal(false)}>
+      <Modal visible={showExportModal} transparent animationType="slide" onRequestClose={() => setShowExportModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.transferModal, { backgroundColor: theme.colors.card }]}>
             <View style={[styles.transferHeader, { borderBottomColor: theme.colors.border }]}>
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Exportar / Importar</Text>
-              <TouchableOpacity onPress={() => setShowTransferModal(false)} style={{ padding: 4 }}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Exportar</Text>
+              <TouchableOpacity onPress={() => setShowExportModal(false)} style={{ padding: 4 }}>
                 <Ionicons name="close" size={26} color={theme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.transferScroll} showsVerticalScrollIndicator={false}>
-              <ExportImportPanel onDone={() => setShowTransferModal(false)} />
+              <ExportPanel onDone={() => setShowExportModal(false)} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showImportModal} transparent animationType="slide" onRequestClose={() => setShowImportModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.transferModal, { backgroundColor: theme.colors.card }]}>
+            <View style={[styles.transferHeader, { borderBottomColor: theme.colors.border }]}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Importar</Text>
+              <TouchableOpacity onPress={() => setShowImportModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={26} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.transferScroll} showsVerticalScrollIndicator={false}>
+              <ImportPanel onDone={() => setShowImportModal(false)} />
             </ScrollView>
           </View>
         </View>

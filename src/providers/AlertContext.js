@@ -27,27 +27,29 @@ export function AlertProvider({ children }) {
   return (
     <AlertContext.Provider value={{ showAlert, showConfirm }}>
       {children}
-      <Modal visible={!!state} transparent animationType="fade" onRequestClose={close}>
-        <View style={styles.overlay}>
-          <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
-            <Text style={[styles.title, { color: theme.colors.text }]}>{state?.title}</Text>
-            <Text style={[styles.message, { color: theme.colors.textSecondary }]}>{state?.message}</Text>
-            <View style={styles.actions}>
-              {state?.type === 'confirm' && (
-                <TouchableOpacity style={[styles.btn, { backgroundColor: theme.colors.surface }]} onPress={close}>
-                  <Text style={{ color: theme.colors.textSecondary, fontWeight: '600' }}>{state?.cancelText || 'Cancelar'}</Text>
+      {state && (
+        <Modal transparent animationType="fade" onRequestClose={close}>
+          <View style={styles.overlay}>
+            <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+              <Text style={[styles.title, { color: theme.colors.text }]}>{state.title}</Text>
+              <Text style={[styles.message, { color: theme.colors.textSecondary }]}>{state.message}</Text>
+              <View style={styles.actions}>
+                {state.type === 'confirm' && (
+                  <TouchableOpacity style={[styles.btn, { backgroundColor: theme.colors.surface }]} onPress={close}>
+                    <Text style={{ color: theme.colors.textSecondary, fontWeight: '600' }}>{state.cancelText || 'Cancelar'}</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.btn, { backgroundColor: state.type === 'confirm' ? '#F43F5E' : theme.colors.primary }]}
+                  onPress={state.type === 'confirm' ? handleConfirm : close}
+                >
+                  <Text style={{ color: '#FFF', fontWeight: '600' }}>{state.type === 'confirm' ? state.confirmText || 'Eliminar' : state.okText || 'OK'}</Text>
                 </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[styles.btn, { backgroundColor: state?.type === 'confirm' ? '#F43F5E' : theme.colors.primary }]}
-                onPress={state?.type === 'confirm' ? handleConfirm : close}
-              >
-                <Text style={{ color: '#FFF', fontWeight: '600' }}>{state?.type === 'confirm' ? state?.confirmText || 'Eliminar' : state?.okText || 'OK'}</Text>
-              </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
     </AlertContext.Provider>
   );
 }
