@@ -25,7 +25,7 @@ const EXPORT_OPTIONS = [
   { key: 'backup', label: 'Respaldo completo (.json)', desc: 'Movimientos + presupuestos + metas + saldo', icon: 'cloud-download-outline', color: '#8B5CF6' },
 ];
 
-export default function ExportImportPanel() {
+export default function ExportImportPanel({ onDone }) {
   const { theme } = useTheme();
   const { showAlert, showConfirm } = useAppAlert();
   const { user } = useAuth();
@@ -35,9 +35,14 @@ export default function ExportImportPanel() {
   const { initialBalance, updateInitialBalance } = useBalance();
   const [busy, setBusy] = useState(false);
 
+  const notifyAfterClose = (title, message) => {
+    onDone?.();
+    setTimeout(() => showAlert(title, message), 0);
+  };
+
   const runExport = (option) => {
     if (!transactions || transactions.length === 0) {
-      showAlert('Exportar', 'No hay movimientos para exportar.');
+      notifyAfterClose('Exportar', 'No hay movimientos para exportar.');
       return;
     }
     let result;
@@ -53,9 +58,9 @@ export default function ExportImportPanel() {
       default: return;
     }
     if (result && !result.downloaded) {
-      showAlert('Exportar', result.reason || 'No se pudo descargar el archivo.');
+      notifyAfterClose('Exportar', result.reason || 'No se pudo descargar el archivo.');
     } else {
-      showAlert('Exportar', 'Se generó el archivo correctamente. Revisa tus descargas.');
+      notifyAfterClose('Exportar', 'Se generó el archivo correctamente. Revisa tus descargas.');
     }
   };
 
@@ -79,9 +84,9 @@ export default function ExportImportPanel() {
           if (results.initialBalance !== null) {
             await updateInitialBalance(results.initialBalance);
           }
-          showAlert('Importación completada', `Movimientos: ${results.transactions}\nPresupuestos: ${results.budgets}\nMetas: ${results.savingGoals}\nSaldo inicial: ${results.initialBalance !== null ? `S/ ${results.initialBalance}` : 'sin cambios'}`);
+          notifyAfterClose('Importación completada', `Movimientos: ${results.transactions}\nPresupuestos: ${results.budgets}\nMetas: ${results.savingGoals}\nSaldo inicial: ${results.initialBalance !== null ? `S/ ${results.initialBalance}` : 'sin cambios'}`);
         } catch (e) {
-          showAlert('Error al importar', e?.message || 'No se pudo importar el respaldo.');
+          notifyAfterClose('Error al importar', e?.message || 'No se pudo importar el respaldo.');
         } finally {
           setBusy(false);
         }

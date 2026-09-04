@@ -117,8 +117,7 @@ export default function SettingsScreen({ navigation }) {
         </Section>
 
         <Section title="Más">
-          <Row icon="download-outline" label="Exportar" onPress={() => setShowTransferModal(true)} />
-          <Row icon="upload-outline" label="Importar" onPress={() => setShowTransferModal(true)} />
+          <Row icon="swap-vertical-outline" label="Exportar / Importar" onPress={() => setShowTransferModal(true)} />
         </Section>
 
         <Section title="Seguridad">
@@ -181,7 +180,7 @@ export default function SettingsScreen({ navigation }) {
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.transferScroll} showsVerticalScrollIndicator={false}>
-              <ExportImportPanel />
+              <ExportImportPanel onDone={() => setShowTransferModal(false)} />
             </ScrollView>
           </View>
         </View>
