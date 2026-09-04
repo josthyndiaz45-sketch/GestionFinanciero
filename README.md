@@ -229,4 +229,4 @@ supabase/
 
 ## 👤 Autor
 
-**Jostin Diaz** — app personal para el control de finanzas.
+**Josthyn Diaz** — app personal para el control de finanzas.
