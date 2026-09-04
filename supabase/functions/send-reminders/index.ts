@@ -6,6 +6,38 @@ const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY');
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@gestioupled.finanzas';
 const PERU_TZ = 'America/Lima';
+const LOGO_URL = 'https://raw.githubusercontent.com/josthyndiaz45-sketch/GestionFinanciero/main/public/logo.png';
+const PRIMARY = '#2563EB';
+
+function emailHtml(title, bodyHtml) {
+  const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `
+  <div style="background:#F4F6FB;padding:24px 12px;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;margin:0 auto;background:#FFFFFF;border-radius:16px;border:1px solid #E2E8F0;overflow:hidden;">
+      <tr>
+        <td align="center" style="padding:28px 24px 8px;">
+          <img src="${esc(LOGO_URL)}" alt="Gestión Financiera" width="84" height="84" style="border-radius:16px;display:block;" />
+          <div style="margin-top:10px;font-size:18px;font-weight:bold;color:#0F172A;">Gestión Financiera</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:18px 28px 6px;font-size:16px;font-weight:bold;color:${PRIMARY};">
+          ${esc(title)}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:4px 28px 20px;font-size:14px;line-height:1.6;color:#334155;">
+          ${bodyHtml}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 28px;background:#F1F5F9;font-size:12px;color:#64748B;text-align:center;">
+          Lleva tu economía al día con Gestión Financiera 🐒
+        </td>
+      </tr>
+    </table>
+  </div>`;
+}
 
 Deno.serve(async () => {
   const supabase = createClient(
@@ -114,15 +146,19 @@ function getNextDueDate(dayOfMonth, today) {
 function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
 
 async function sendEmail(to, items) {
-  const lines = items.map((i) =>
-    i.days < 0
-      ? `- ${i.name}${i.amount ? ` · S/ ${Number(i.amount).toFixed(2)}` : ''} — venció el ${i.due.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: PERU_TZ })}. Sigue pendiente`
-      : `- ${i.name}${i.amount ? ` · S/ ${Number(i.amount).toFixed(2)}` : ''} — ${i.days === 0 ? 'vence hoy' : `vence en ${i.days} día${i.days > 1 ? 's' : ''}`}`
-  ).join('\n');
+  const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const lines = items.map((i) => {
+    const amt = i.amount ? ` <b>S/ ${Number(i.amount).toFixed(2)}</b>` : '';
+    if (i.days < 0) {
+      return `<li>${esc(i.name)}${amt} — venció el ${i.due.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: PERU_TZ })}. Sigue pendiente</li>`;
+    }
+    return `<li>${esc(i.name)}${amt} — ${i.days === 0 ? 'vence hoy' : `vence en ${i.days} día${i.days > 1 ? 's' : ''}`}</li>`;
+  }).join('');
   const hasToday = items.some((i) => i.days <= 0);
   const subject = hasToday
     ? `Recordatorio suave: hoy pagas ${items.length === 1 ? items[0].name : `${items.length} cosas`}`
     : `Recordatorio: tienes ${items.length} pago${items.length > 1 ? 's' : ''} próximos`;
+  const bodyHtml = `¡Hola! 👋<br/><br/>Tranquilo, esto es solo un recordatorio de tus pagos:<br/><ul style="margin:8px 0 0 20px;padding:0;">${lines}</ul><br/>— Gestión Financiera`;
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
@@ -130,7 +166,7 @@ async function sendEmail(to, items) {
       from: `GestionFinanciero <onboarding@resend.dev>`,
       to,
       subject,
-      text: `Hola,\n\ntranquilo, esto es solo un recordatorio:\n\n${lines}\n\n— GestionFinanciero`,
+      html: emailHtml(subject, bodyHtml),
     }),
   });
   return res.ok;

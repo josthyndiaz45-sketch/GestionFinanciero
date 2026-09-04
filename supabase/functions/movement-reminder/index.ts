@@ -7,6 +7,38 @@ const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@gestioupled.finanzas';
 const PERU_TZ = 'America/Lima';
 const FROM_EMAIL = 'GestionFinanciero <onboarding@resend.dev>';
+const LOGO_URL = 'https://raw.githubusercontent.com/josthyndiaz45-sketch/GestionFinanciero/main/public/logo.png';
+const PRIMARY = '#2563EB';
+
+function emailHtml(title, bodyHtml) {
+  const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `
+  <div style="background:#F4F6FB;padding:24px 12px;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;margin:0 auto;background:#FFFFFF;border-radius:16px;border:1px solid #E2E8F0;overflow:hidden;">
+      <tr>
+        <td align="center" style="padding:28px 24px 8px;">
+          <img src="${esc(LOGO_URL)}" alt="Gestión Financiera" width="84" height="84" style="border-radius:16px;display:block;" />
+          <div style="margin-top:10px;font-size:18px;font-weight:bold;color:#0F172A;">Gestión Financiera</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:18px 28px 6px;font-size:16px;font-weight:bold;color:${PRIMARY};">
+          ${esc(title)}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:4px 28px 20px;font-size:14px;line-height:1.6;color:#334155;">
+          ${bodyHtml}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 28px;background:#F1F5F9;font-size:12px;color:#64748B;text-align:center;">
+          Lleva tu economía al día con Gestión Financiera 🐒
+        </td>
+      </tr>
+    </table>
+  </div>`;
+}
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -63,13 +95,13 @@ async function getUserEmailMap() {
   return map;
 }
 
-async function sendEmail(to, subject, text) {
+async function sendEmail(to, subject, bodyHtml) {
   if (!RESEND_API_KEY) return false;
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM_EMAIL, to, subject, text }),
+      body: JSON.stringify({ from: FROM_EMAIL, to, subject, html: emailHtml(subject, bodyHtml) }),
     });
     if (!res.ok) {
       console.warn('Resend failed:', res.status, await res.text().catch(() => ''));
@@ -91,7 +123,7 @@ async function sendTest(userId) {
     const ok = await sendEmail(
       email,
       '🔔 Notificación de prueba — Gestión Financiera',
-      '¡Hola!\n\nEsto es una notificación de prueba de Gestión Financiera. Si estás leyendo este correo, todo funciona correctamente. 📝\n\nRecuerda registrar tus movimientos del día para llevar tu economía al día.\n\n— Gestión Financiera'
+      `¡Hola! 👋<br/><br/>Esto es una <b>notificación de prueba</b> de Gestión Financiera. Si estás leyendo este correo, todo funciona correctamente. 📝<br/><br/>Recuerda registrar tus movimientos del día para llevar tu economía al día.<br/><br/>— Gestión Financiera`
     );
     if (ok) emailSent = 1;
   }
@@ -142,7 +174,7 @@ async function sendDailyReminders() {
     const ok = await sendEmail(
       email,
       '📝 ¿Registraste tus movimientos hoy? — Gestión Financiera',
-      '¡Hola!\n\nHoy no has registrado ningún movimiento en Gestión Financiera.\n\nLlevar tu día al día te ayuda a controlar tus gastos. Entra a la app y anota tus ingresos o gastos del día. 💡\n\n— Gestión Financiera'
+      `¡Hola! 👋<br/><br/>Hoy <b>no has registrado ningún movimiento</b> en Gestión Financiera.<br/><br/>Llevar tu día al día te ayuda a controlar tus gastos. Entra a la app y anota tus ingresos o gastos del día. 💡<br/><br/>— Gestión Financiera`
     );
     if (ok) emailSent++;
   }
