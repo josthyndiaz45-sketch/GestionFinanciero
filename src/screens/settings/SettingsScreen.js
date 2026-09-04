@@ -42,12 +42,12 @@ export default function SettingsScreen({ navigation }) {
     setTestingNotif(true);
     try {
       const res = await sendTestMovementNotification(user?.id);
-      if (!res.supported) {
-        showAlert('Notificación de prueba', res.reason || 'No disponible');
-      } else if (res.sent > 0) {
-        showAlert('Notificación de prueba', 'Se envió la notificación. Revisa si te llegó en el navegador.');
+      if (res.email) {
+        showAlert('Notificación de prueba', `Se envió un correo a ${res.email}. Revisa tu bandeja de entrada (y de spam).`);
+      } else if (res.reason) {
+        showAlert('Notificación de prueba', res.reason);
       } else {
-        showAlert('Notificación de prueba', 'No se pudo enviar. Asegúrate de haber aceptado el permiso de notificaciones del navegador.');
+        showAlert('Notificación de prueba', 'No se pudo enviar el correo de prueba. Verifica que RESEND_API_KEY esté configurado.');
       }
     } catch (e) {
       showAlert('Error', `No se pudo enviar la notificación de prueba.\n\nDetalle: ${e?.message || String(e)}`);

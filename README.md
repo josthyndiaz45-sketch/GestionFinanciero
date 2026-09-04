@@ -175,13 +175,14 @@ Timezone: America/Lima
 
 ---
 
-## 📝 Recordatorio diario de "registrar movimientos" (web push)
+## 📝 Recordatorio diario de "registrar movimientos" (email)
 
-Si **no registraste ningún movimiento en todo el día**, cada noche se te envía una notificación para que anotes tus gastos/ingresos. Si tuviste al menos un movimiento ese día, no llega nada.
+Si **no registraste ningún movimiento en todo el día**, cada noche se te envía un **correo** a la cuenta con la que estás registrado para que anotes tus gastos/ingresos. Si tuviste al menos un movimiento ese día, no llega nada.
 
-1. Despliega la función (requiere los mismos secrets de VAPID de las notificaciones web):
+1. **Requiere Resend** (los correos van por Resend). Crea una cuenta en [Resend](https://resend.com) con el mismo email de tu cuenta de la app y guarda la API Key:
 
 ```bash
+npx supabase secrets set RESEND_API_KEY=re_xxxx
 npx supabase functions deploy movement-reminder
 ```
 
@@ -194,9 +195,9 @@ Timezone: America/Lima
 
 Eso envía el aviso cada día a las **20:30** (hora de Perú).
 
-3. **Probar desde la app**: en **Configuración → General → "Notificación de prueba"** se envía al instante una notificación web a tu sesión para comprobar que todo funciona (solo en navegador con permiso de notificaciones activado).
+3. **Probar desde la app**: en **Configuración → General → "Notificación de prueba"** se envía al instante un correo a tu cuenta para comprobar que todo funciona.
 
-> El botón de prueba invoca la función en modo `{ mode: 'test', userId }`; el cron diario la invoca sin cuerpo (modo `daily`). Ambos envían solo a suscripciones web registradas (`push_subscriptions`).
+> El botón de prueba invoca la función en modo `{ mode: 'test', userId }`; el cron diario la invoca sin cuerpo (modo `daily`). Ambos envían por **email** (y push como extra si hay suscripciones). Los recordatorios de pago ya usan email vía `send-reminders`, y también requieren `RESEND_API_KEY`.
 
 ---
 
