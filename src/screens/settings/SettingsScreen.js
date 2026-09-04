@@ -134,7 +134,7 @@ export default function SettingsScreen({ navigation }) {
             <View style={styles.aboutInfo}>
               <Text style={[styles.aboutApp, { color: theme.colors.text }]}>Gestión Financiera</Text>
               <Text style={[styles.aboutDev, { color: theme.colors.textSecondary }]}>Josthyn Diaz Martinez</Text>
-              <Text style={[styles.aboutVersion, { color: theme.colors.textSecondary }]}>Versión 1.0.0</Text>
+              <Text style={[styles.aboutVersion, { color: theme.colors.textSecondary }]}>Versión 1.2.0</Text>
             </View>
           </View>
         </Section>
