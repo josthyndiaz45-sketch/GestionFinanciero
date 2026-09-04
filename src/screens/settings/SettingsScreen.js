@@ -10,6 +10,7 @@ import { useAppAlert } from '../../providers/AlertContext';
 import { signOut } from '../../services/authService';
 import { formatCurrency } from '../../utils/formatters';
 import { sendTestMovementNotification } from '../../services/movementReminderService';
+import ExportImportPanel from './ExportImportPanel';
 
 export default function SettingsScreen({ navigation }) {
   const { theme, isDark, toggleTheme } = useTheme();
@@ -18,6 +19,7 @@ export default function SettingsScreen({ navigation }) {
   const { showAlert, showConfirm } = useAppAlert();
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [balanceInput, setBalanceInput] = useState(String(initialBalance));
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   const handleLogout = () => {
     showConfirm('Cerrar sesión', '¿Estás seguro?', () => signOut(), 'Cerrar sesión');
@@ -114,6 +116,11 @@ export default function SettingsScreen({ navigation }) {
           />
         </Section>
 
+        <Section title="Más">
+          <Row icon="download-outline" label="Exportar" onPress={() => setShowTransferModal(true)} />
+          <Row icon="upload-outline" label="Importar" onPress={() => setShowTransferModal(true)} />
+        </Section>
+
         <Section title="Seguridad">
           <Row icon="lock-closed-outline" label="Cambiar contraseña" onPress={() => showAlert('Info', 'Función pendiente')} />
           <Row icon="log-out-outline" label="Cerrar sesión" onPress={handleLogout} />
@@ -163,6 +170,22 @@ export default function SettingsScreen({ navigation }) {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      <Modal visible={showTransferModal} transparent animationType="slide" onRequestClose={() => setShowTransferModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.transferModal, { backgroundColor: theme.colors.card }]}>
+            <View style={[styles.transferHeader, { borderBottomColor: theme.colors.border }]}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Exportar / Importar</Text>
+              <TouchableOpacity onPress={() => setShowTransferModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={26} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.transferScroll} showsVerticalScrollIndicator={false}>
+              <ExportImportPanel />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -183,7 +206,9 @@ const styles = StyleSheet.create({
   rowValue: { fontSize: 14 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 },
   modalContent: { borderRadius: 24, padding: 24 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
+  transferModal: { borderRadius: 24, maxHeight: '85%', overflow: 'hidden' },
+  transferHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 0.5 },
+  transferScroll: { padding: 20, paddingBottom: 30 },  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
   modalHint: { fontSize: 13, marginBottom: 16 },
   amountRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, paddingHorizontal: 14 },
   currencyPrefix: { fontSize: 18, fontWeight: 'bold', marginRight: 8 },
