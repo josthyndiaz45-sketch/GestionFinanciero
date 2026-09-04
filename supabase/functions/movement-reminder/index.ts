@@ -6,12 +6,30 @@ const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@gestioupled.finanzas';
 const PERU_TZ = 'America/Lima';
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Max-Age': '86400',
+};
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+  });
+}
+
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL'),
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 );
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   let mode = 'daily';
   let requestedUserId = null;
 
@@ -27,15 +45,11 @@ Deno.serve(async (req) => {
 
   if (mode === 'test') {
     const sent = await sendTestPush(requestedUserId);
-    return new Response(JSON.stringify({ mode, sent }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ mode, sent });
   }
 
   const sent = await sendDailyReminders();
-  return new Response(JSON.stringify({ sent }), {
-    headers: { 'Content-Type': 'application/json' },
-  });
+  return json({ sent });
 });
 
 async function sendTestPush(userId) {
