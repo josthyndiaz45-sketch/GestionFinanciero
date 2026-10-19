@@ -6,17 +6,15 @@ import DatePickerField from '../../components/DatePickerField';
 import { useTheme } from '../../providers/ThemeContext';
 import { useAuth } from '../../providers/AuthContext';
 import { useTransactions } from '../../providers/TransactionContext';
-import { useTags } from '../../providers/TagContext';
 import { useCategories } from '../../providers/CategoryContext';
 import { useAppAlert } from '../../providers/AlertContext';
-import { PAYMENT_METHODS, TRANSACTION_TAGS, TAG_COLORS } from '../../constants/constants';
+import { PAYMENT_METHODS } from '../../constants/constants';
 import { createNewTransaction } from '../../models/Transaction';
 
 export default function TransactionFormScreen({ navigation, route }) {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { addTransaction, editTransaction, transactions, loadTransactions } = useTransactions();
-  const { getTag, setTag } = useTags();
   const { getCategories } = useCategories();
   const { showAlert } = useAppAlert();
   const existing = route.params?.transaction;
@@ -31,13 +29,6 @@ export default function TransactionFormScreen({ navigation, route }) {
   const [paymentMethod, setPaymentMethod] = useState(existing?.paymentMethod || '');
   const [note, setNote] = useState(existing?.note || '');
   const [showPayment, setShowPayment] = useState(false);
-  const [selectedTag, setSelectedTag] = useState(null);
-
-  useEffect(() => {
-    if (existing?.id) {
-      setSelectedTag(getTag(existing.id));
-    }
-  }, [existing?.id]);
 
   useEffect(() => {
     loadTransactions();
@@ -110,7 +101,6 @@ export default function TransactionFormScreen({ navigation, route }) {
         savedTx = tx;
         await addTransaction(tx);
       }
-      await setTag(savedTx.id, selectedTag);
       navigation.goBack();
     } catch (e) {
       showAlert('Error', e.message || 'No se pudo guardar');
@@ -150,24 +140,6 @@ export default function TransactionFormScreen({ navigation, route }) {
                 <Text style={[styles.categoryChipText, { color: category === cat.name ? '#FFF' : theme.colors.text }]}>{cat.label}</Text>
               </TouchableOpacity>
             ))}
-          </View>
-
-          <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Etiqueta</Text>
-          <View style={styles.categoryGrid}>
-            {TRANSACTION_TAGS.map((tag) => {
-              const tagColor = TAG_COLORS[tag];
-              const isSelected = selectedTag === tag;
-              return (
-                <TouchableOpacity
-                  key={tag}
-                  style={[styles.categoryChip, isSelected && { backgroundColor: tagColor, borderColor: tagColor }, { borderColor: theme.colors.border }]}
-                  onPress={() => setSelectedTag(isSelected ? null : tag)}
-                >
-                  <Ionicons name="pricetag-outline" size={14} color={isSelected ? '#FFF' : tagColor} />
-                  <Text style={[styles.categoryChipText, { color: isSelected ? '#FFF' : theme.colors.text }]}>{tag}</Text>
-                </TouchableOpacity>
-              );
-            })}
           </View>
 
           <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Descripción</Text>

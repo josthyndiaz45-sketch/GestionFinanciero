@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../providers/ThemeContext';
@@ -7,6 +7,7 @@ import { useTransactions } from '../../providers/TransactionContext';
 import { useBalance } from '../../providers/BalanceContext';
 import { useSavingGoals } from '../../providers/SavingGoalContext';
 import { useBudgets } from '../../providers/BudgetContext';
+import { useLoans } from '../../providers/LoanContext';
 import { useAuth } from '../../providers/AuthContext';
 import { pickTransactionsFile, createTransactionsMany } from '../../services/transactionImportService';
 import { pickJsonFile } from '../../services/dataTransferService';
@@ -19,21 +20,69 @@ function formatDate(iso) {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
+const RECENT_WINDOW_MINUTES = 60 * 24;
+const DELETE_RANGES = [
+  { label: 'Últimos 30 min', minutes: 30 },
+  { label: 'Última hora', minutes: 60 },
+  { label: 'Últimas 24 h', minutes: 60 * 24 },
+  { label: 'Todas', minutes: 0 },
+];
+
 export default function ImportPanel({ onDone }) {
   const { theme } = useTheme();
   const { showAlert, showConfirm } = useAppAlert();
   const { user } = useAuth();
-  const { loadTransactions } = useTransactions();
+  const { loadTransactions, getRecentImports, deleteImportedTransactions } = useTransactions();
   const { budgets, loadBudgets } = useBudgets();
   const { goals, loadGoals } = useSavingGoals();
+  const { loadLoans } = useLoans();
   const { updateInitialBalance } = useBalance();
   const [parsed, setParsed] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [recentCount, setRecentCount] = useState(null);
 
   const notifyAfterClose = (title, message) => {
     onDone?.();
     setTimeout(() => showAlert(title, message), 0);
   };
+
+  const getSinceIso = (minutes) => (minutes ? new Date(Date.now() - minutes * 60 * 1000).toISOString() : null);
+
+  const refreshRecentCount = async () => {
+    try {
+      const items = await getRecentImports(getSinceIso(RECENT_WINDOW_MINUTES));
+      setRecentCount(items.length);
+    } catch (_) {
+      setRecentCount(null);
+    }
+  };
+
+  const handleDeleteRecent = (minutes) => {
+    const label = DELETE_RANGES.find((r) => r.minutes === minutes)?.label || 'el rango elegido';
+    showConfirm(
+      'Borrar importaciones',
+      `Se eliminarán los movimientos agregados desde archivo en "${label}". Los movimientos creados manualmente no se tocan. ¿Deseas continuar?`,
+      async () => {
+        if (busy) return;
+        setBusy(true);
+        try {
+          const removed = await deleteImportedTransactions(getSinceIso(minutes));
+          await refreshRecentCount();
+          notifyAfterClose('Importaciones borradas', removed > 0 ? `Se eliminaron ${removed} movimientos importados.` : 'No había movimientos importados en ese rango.');
+        } catch (e) {
+          showAlert('Error al borrar', e?.message || 'No se pudieron borrar las importaciones.');
+        } finally {
+          setBusy(false);
+        }
+      },
+      'Borrar'
+    );
+  };
+
+  useEffect(() => {
+    refreshRecentCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handlePickFile = async () => {
     if (busy) return;
@@ -69,7 +118,7 @@ export default function ImportPanel({ onDone }) {
   const handleImportBackup = () => {
     showConfirm(
       'Restaurar respaldo',
-      'Esto reemplazará TODOS tus movimientos, presupuestos, metas y saldo actuales con el contenido del respaldo. ¿Deseas continuar?',
+      'Esto reemplazará TODOS tus movimientos, presupuestos, metas, préstamos y saldo actuales con el contenido del respaldo. ¿Deseas continuar?',
       async () => {
         if (busy) return;
         setBusy(true);
@@ -78,13 +127,13 @@ export default function ImportPanel({ onDone }) {
           if (!user) throw new Error('Sesión no iniciada');
           await clearUserFinancialData(user.id);
           const results = await restoreBackup(backup, user.id);
-          await Promise.all([loadTransactions(), loadBudgets(), loadGoals()]);
+          await Promise.all([loadTransactions(), loadBudgets(), loadGoals(), loadLoans()]);
           if (results.initialBalance !== null) {
             await updateInitialBalance(results.initialBalance);
           }
           notifyAfterClose(
             'Importación completada',
-            `Movimientos: ${results.transactions}\nPresupuestos: ${results.budgets}\nMetas: ${results.savingGoals}\nSaldo inicial: ${results.initialBalance !== null ? `S/ ${results.initialBalance}` : 'sin cambios'}`
+            `Movimientos: ${results.transactions}\nPresupuestos: ${results.budgets}\nMetas: ${results.savingGoals}\nPréstamos y deudas: ${results.loans || 0}\nSaldo inicial: ${results.initialBalance !== null ? `S/ ${results.initialBalance}` : 'sin cambios'}`
           );
         } catch (e) {
           notifyAfterClose('Error al importar', e?.message || 'No se pudo importar el respaldo.');
@@ -162,7 +211,7 @@ export default function ImportPanel({ onDone }) {
 
       <Text style={[styles.subtitle, { color: theme.colors.textSecondary, marginTop: 28 }]}>Restaurar respaldo completo (.json)</Text>
       <Text style={[styles.sectionHint, { color: theme.colors.textSecondary }]}>
-        Reemplaza TODO (movimientos, presupuestos, metas y saldo) con un respaldo .json generado desde "Exportar".
+        Reemplaza TODO (movimientos, presupuestos, metas, préstamos y saldo) con un respaldo .json generado desde "Exportar".
       </Text>
       <TouchableOpacity
         style={[styles.outlineAction, { borderColor: theme.colors.border }]}
@@ -172,6 +221,28 @@ export default function ImportPanel({ onDone }) {
         <Ionicons name="swap-vertical-outline" size={20} color={theme.colors.text} />
         <Text style={[styles.outlineActionText, { color: theme.colors.text }]}>Importar respaldo (.json)</Text>
       </TouchableOpacity>
+
+      <Text style={[styles.subtitle, { color: theme.colors.textSecondary, marginTop: 28 }]}>Borrar importaciones recientes</Text>
+      <Text style={[styles.sectionHint, { color: theme.colors.textSecondary }]}>
+        {recentCount === null
+          ? 'Elimina los movimientos que agregaste desde archivo en las últimas 24 horas.'
+          : recentCount > 0
+            ? `Tienes ${recentCount} movimiento(s) importados en las últimas 24 horas. Elige el rango a eliminar.`
+            : 'No hay movimientos importados en las últimas 24 horas. Puedes borrar importaciones anteriores eligiendo "Todas".'}
+      </Text>
+      <View style={styles.rangeRow}>
+        {DELETE_RANGES.map((r) => (
+          <TouchableOpacity
+            key={r.minutes}
+            style={[styles.rangeChip, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}
+            onPress={() => handleDeleteRecent(r.minutes)}
+            disabled={busy}
+          >
+            <Ionicons name="trash-outline" size={14} color="#F43F5E" />
+            <Text style={{ color: theme.colors.text, fontSize: 12, fontWeight: '600' }}>{r.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   );
 }
@@ -189,4 +260,6 @@ const styles = StyleSheet.create({
   previewRow: { fontSize: 13, marginBottom: 4, lineHeight: 18 },
   previewActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
   btn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  rangeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  rangeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1 },
 });

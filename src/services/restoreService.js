@@ -53,8 +53,22 @@ const GOAL_FIELDS = [
   ['updatedAt', 'updated_at'],
 ];
 
+const LOAN_FIELDS = [
+  ['id', 'id'],
+  ['userId', 'user_id'],
+  ['direction', 'direction'],
+  ['counterparty', 'counterparty'],
+  ['amount', 'amount'],
+  ['paidAmount', 'paid_amount'],
+  ['date', 'date'],
+  ['dueDate', 'due_date'],
+  ['note', 'note'],
+  ['createdAt', 'created_at'],
+  ['updatedAt', 'updated_at'],
+];
+
 export async function clearUserFinancialData(userId) {
-  const tables = ['transactions', 'budgets', 'saving_goals'];
+  const tables = ['transactions', 'budgets', 'saving_goals', 'loans'];
   for (const table of tables) {
     await safeQuery(() => supabase.from(table).delete().eq('user_id', userId));
   }
@@ -65,8 +79,9 @@ export async function restoreBackup(backup, currentUserId) {
   const txRows = normalize(backup.transactions, currentUserId, TX_FIELDS);
   const budgetRows = normalize(backup.budgets, currentUserId, BUDGET_FIELDS);
   const goalRows = normalize(backup.savingGoals, currentUserId, GOAL_FIELDS);
+  const loanRows = normalize(backup.loans, currentUserId, LOAN_FIELDS);
 
-  const results = { transactions: 0, budgets: 0, savingGoals: 0, initialBalance: null };
+  const results = { transactions: 0, budgets: 0, savingGoals: 0, loans: 0, initialBalance: null };
 
   if (txRows.length > 0) {
     const { error } = await safeQuery(() => supabase.from('transactions').insert(txRows));
@@ -84,6 +99,12 @@ export async function restoreBackup(backup, currentUserId) {
     const { error } = await safeQuery(() => supabase.from('saving_goals').insert(goalRows));
     if (error) throw new Error(`Error al restaurar metas: ${error.message}`);
     results.savingGoals = goalRows.length;
+  }
+
+  if (loanRows.length > 0) {
+    const { error } = await safeQuery(() => supabase.from('loans').insert(loanRows));
+    if (error) throw new Error(`Error al restaurar préstamos: ${error.message}`);
+    results.loans = loanRows.length;
   }
 
   if (typeof backup.initialBalance === 'number' && !Number.isNaN(backup.initialBalance)) {

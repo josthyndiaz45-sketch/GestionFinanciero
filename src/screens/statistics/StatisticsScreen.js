@@ -1,14 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Modal, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { PieChart, BarChart } from 'react-native-chart-kit';
 import CalendarDatePicker from '../../components/CalendarDatePicker';
 import { useTheme } from '../../providers/ThemeContext';
 import { useAuth } from '../../providers/AuthContext';
 import { useTransactions } from '../../providers/TransactionContext';
 import { useBalance } from '../../providers/BalanceContext';
+import { useLoans } from '../../providers/LoanContext';
 import { useCategories } from '../../providers/CategoryContext';
+import { loansNetEffect } from '../../models/Loan';
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
+import { Gradient } from '../../components/Gradient';
+import { FadeInView, PopInView, AnimatedBar, useFocusKey } from '../../components/Animated';
 
 const TABS = [
   { key: 'dia', label: 'Día' },
@@ -95,6 +100,7 @@ export default function StatisticsScreen() {
   const { user } = useAuth();
   const { transactions, loadTransactions } = useTransactions();
   const { initialBalance } = useBalance();
+  const { loans, loadLoans } = useLoans();
   const { getCategories } = useCategories();
   const expenseCategories = getCategories('expense');
   const [activeTab, setActiveTab] = useState('mes');
@@ -105,8 +111,10 @@ export default function StatisticsScreen() {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const { width: windowWidth } = useWindowDimensions();
+  const focusKey = useFocusKey();
 
-  useEffect(() => { if (user) loadTransactions(); }, [user]);
+  useEffect(() => { if (user) { loadTransactions(); loadLoans(); } }, [user]);
 
   const useCustomRange = showCustom;
   const currentRange = useCustomRange
@@ -123,7 +131,7 @@ export default function StatisticsScreen() {
 
   const allIncome = transactions.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const allExpense = transactions.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const currentBalance = initialBalance + allIncome - allExpense;
+  const currentBalance = initialBalance + allIncome - allExpense + loansNetEffect(loans);
 
   const incomePct = pctChange(totalIncome, prevComp.prevIncome);
   const expensePct = pctChange(totalExpense, prevComp.prevExpense);
@@ -152,15 +160,58 @@ export default function StatisticsScreen() {
   const ChangeBadge = ({ value, compact }) => {
     if (value === 0 && !compact) return null;
     const up = value >= 0;
+    const bg = up ? theme.colors.incomeSoft : theme.colors.expenseSoft;
+    const fg = up ? theme.colors.incomeText : theme.colors.expenseText;
+    const iconColor = up ? theme.colors.income : theme.colors.expense;
     return (
-      <View style={[styles.changeBadge, { backgroundColor: up ? '#ECFDF5' : '#FFF1F2' }]}>
-        <Ionicons name={up ? 'trending-up' : 'trending-down'} size={compact ? 10 : 12} color={up ? '#10B981' : '#F43F5E'} />
-        <Text style={[styles.changeText, { color: up ? '#065F46' : '#9F1239', fontSize: compact ? 9 : 11 }]}>{Math.abs(Math.round(value))}%</Text>
+      <View style={[styles.changeBadge, { backgroundColor: bg }]}>
+        <Ionicons name={up ? 'trending-up' : 'trending-down'} size={compact ? 10 : 12} color={iconColor} />
+        <Text style={[styles.changeText, { color: fg, fontSize: compact ? 9 : 11 }]}>{Math.abs(Math.round(value))}%</Text>
       </View>
     );
   };
 
   const hasData = filtered.length > 0;
+
+  const chartWidth = Math.max(280, Math.min(windowWidth - 40, 560));
+
+  const pieData = sortedCategories.slice(0, 6).map(([catName, amount]) => {
+    const cat = expenseCategories.find((c) => c.name === catName) || { label: catName, color: '#6B7280' };
+    return {
+      name: cat.label,
+      population: amount,
+      color: cat.color || '#6B7280',
+      legendFontColor: theme.colors.textSecondary,
+      legendFontSize: 12,
+    };
+  });
+
+  // Monthly trend for the current year
+  const trendMonths = Array.from({ length: 12 }, (_, i) => i);
+  const yearTx = transactions.filter((t) => new Date(t.date).getFullYear() === currentRange.start.getFullYear());
+  const trendIncome = trendMonths.map((m) => yearTx.filter((t) => t.type === 'income' && new Date(t.date).getMonth() === m).reduce((s, t) => s + t.amount, 0));
+  const trendExpense = trendMonths.map((m) => yearTx.filter((t) => t.type === 'expense' && new Date(t.date).getMonth() === m).reduce((s, t) => s + t.amount, 0));
+  const hasTrend = yearTx.length > 0;
+
+  const barData = {
+    labels: SHORT_MONTH,
+    datasets: [
+      { data: trendExpense, color: (o = 1) => `rgba(244, 63, 94, ${o})` },
+      { data: trendIncome, color: (o = 1) => `rgba(16, 185, 129, ${o})` },
+    ],
+    legend: ['Gastos', 'Ingresos'],
+  };
+
+  const chartConfig = {
+    backgroundGradientFrom: theme.colors.card,
+    backgroundGradientTo: theme.colors.card,
+    decimalPlaces: 0,
+    color: (o = 1) => `rgba(99, 102, 241, ${o})`,
+    labelColor: () => theme.colors.textSecondary,
+    propsForBackgroundLines: { stroke: theme.colors.border, strokeDasharray: '' },
+    propsForLabels: { fontSize: 10 },
+    barPercentage: 0.6,
+  };
 
   const selectedCatInfo = selectedCategory ? (expenseCategories.find((c) => c.name === selectedCategory) || { label: selectedCategory, color: '#6B7280', icon: 'ellipsis-horizontal-outline' }) : null;
   const selectedTx = selectedCategory
@@ -183,40 +234,51 @@ export default function StatisticsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>Estadísticas</Text>
+      <ScrollView key={focusKey} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <FadeInView delay={0}>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Estadísticas</Text>
+        </FadeInView>
 
-        <View style={[styles.balanceCard, { backgroundColor: theme.colors.primary }]}>
-          <View style={styles.balanceTop}>
-            <Text style={styles.balanceLabel}>Saldo actual</Text>
-            <Ionicons name="wallet-outline" size={20} color="rgba(255,255,255,0.7)" />
-          </View>
-          <Text style={styles.balance}>{formatCurrency(currentBalance)}</Text>
-          {initialBalance > 0 && (
-            <Text style={styles.balanceSub}>Incluye saldo inicial: {formatCurrency(initialBalance)}</Text>
-          )}
-        </View>
+        <PopInView delay={80} style={[styles.balanceCardWrap, theme.shadow.hero]}>
+          <Gradient colors={[theme.colors.gradientStart, theme.colors.gradientEnd]} style={styles.balanceCard}>
+            <View style={styles.balanceGlow} />
+            <View style={styles.balanceGlow2} />
+            <View style={styles.balanceTop}>
+              <Text style={styles.balanceLabel}>Saldo actual</Text>
+              <View style={styles.balanceIconBadge}>
+                <Ionicons name="wallet-outline" size={18} color="#FFFFFF" />
+              </View>
+            </View>
+            <Text style={styles.balance}>{formatCurrency(currentBalance)}</Text>
+            {initialBalance > 0 && (
+              <Text style={styles.balanceSub}>Incluye saldo inicial: {formatCurrency(initialBalance)}</Text>
+            )}
+          </Gradient>
+        </PopInView>
 
-        <View style={styles.tabRow}>
-          {TABS.map((tab) => (
-            <TouchableOpacity key={tab.key} style={[styles.tab, activeTab === tab.key && !showCustom && { backgroundColor: theme.colors.primary }]} onPress={() => handleTabChange(tab.key)}>
-              <Text style={[styles.tabText, activeTab === tab.key && !showCustom && { color: '#FFF' }]}>{tab.label}</Text>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity style={[styles.tab, showCustom && { backgroundColor: theme.colors.primary }]} onPress={() => setShowCustom(true)}>
+        <View style={[styles.tabRow, { backgroundColor: theme.colors.surface }]}>
+          {TABS.map((tab) => {
+            const active = activeTab === tab.key && !showCustom;
+            return (
+              <TouchableOpacity key={tab.key} style={[styles.tab, active && { backgroundColor: theme.colors.primary }, active && theme.shadow.soft]} onPress={() => handleTabChange(tab.key)}>
+                <Text style={[styles.tabText, { color: active ? '#FFF' : theme.colors.textSecondary }]}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity style={[styles.tab, showCustom && { backgroundColor: theme.colors.primary }, showCustom && theme.shadow.soft]} onPress={() => setShowCustom(true)}>
             <Ionicons name="calendar-outline" size={14} color={showCustom ? '#FFF' : theme.colors.textSecondary} />
-            <Text style={[styles.tabText, showCustom && { color: '#FFF' }]}>Personalizado</Text>
+            <Text style={[styles.tabText, { color: showCustom ? '#FFF' : theme.colors.textSecondary }]}>Personalizado</Text>
           </TouchableOpacity>
         </View>
 
         {!showCustom && (
-          <View style={[styles.navRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-            <TouchableOpacity onPress={handlePrev} style={styles.navArrow}>
-              <Ionicons name="chevron-back" size={22} color={theme.colors.primary} />
+          <View style={[styles.navRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }, theme.shadow.soft]}>
+            <TouchableOpacity onPress={handlePrev} style={[styles.navArrow, { backgroundColor: theme.colors.primarySoft }]}>
+              <Ionicons name="chevron-back" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
             <Text style={[styles.navLabel, { color: theme.colors.text }]}>{navLabel}</Text>
-            <TouchableOpacity onPress={handleNext} style={styles.navArrow}>
-              <Ionicons name="chevron-forward" size={22} color={theme.colors.primary} />
+            <TouchableOpacity onPress={handleNext} style={[styles.navArrow, { backgroundColor: theme.colors.primarySoft }]}>
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
           </View>
         )}
@@ -275,75 +337,125 @@ export default function StatisticsScreen() {
         )}
 
         <View style={styles.summaryRow}>
-          <View style={[styles.summaryCard, { backgroundColor: '#ECFDF5', borderColor: '#D1FAE5' }]}>
-            <Text style={styles.summaryLabel}>Ingresos</Text>
-            <Text style={styles.summaryAmountGreen}>{formatCurrency(totalIncome)}</Text>
+          <View style={[styles.summaryCard, { backgroundColor: theme.colors.incomeSoft, borderColor: theme.colors.border }, theme.shadow.soft]}>
+            <View style={[styles.summaryIcon, { backgroundColor: theme.colors.income + '22' }]}>
+              <Ionicons name="trending-up" size={16} color={theme.colors.income} />
+            </View>
+            <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Ingresos</Text>
+            <Text style={[styles.summaryAmount, { color: theme.colors.incomeText }]} numberOfLines={1}>{formatCurrency(totalIncome)}</Text>
             <ChangeBadge value={incomePct} />
           </View>
-          <View style={[styles.summaryCard, { backgroundColor: '#FFF1F2', borderColor: '#FECDD3' }]}>
-            <Text style={styles.summaryLabel}>Gastos</Text>
-            <Text style={styles.summaryAmountRed}>{formatCurrency(totalExpense)}</Text>
+          <View style={[styles.summaryCard, { backgroundColor: theme.colors.expenseSoft, borderColor: theme.colors.border }, theme.shadow.soft]}>
+            <View style={[styles.summaryIcon, { backgroundColor: theme.colors.expense + '22' }]}>
+              <Ionicons name="trending-down" size={16} color={theme.colors.expense} />
+            </View>
+            <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Gastos</Text>
+            <Text style={[styles.summaryAmount, { color: theme.colors.expenseText }]} numberOfLines={1}>{formatCurrency(totalExpense)}</Text>
             <ChangeBadge value={expensePct} />
           </View>
         </View>
 
-        <View style={[styles.netCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-          <Text style={[styles.netLabel, { color: theme.colors.textSecondary }]}>Neto</Text>
-          <Text style={[styles.netAmount, { color: net >= 0 ? '#10B981' : '#F43F5E' }]}>{formatCurrency(net)}</Text>
+        <View style={[styles.netCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }, theme.shadow.soft]}>
+          <Text style={[styles.netLabel, { color: theme.colors.textSecondary }]}>Balance neto del período</Text>
+          <Text style={[styles.netAmount, { color: net >= 0 ? theme.colors.income : theme.colors.expense }]}>{formatCurrency(net)}</Text>
           <View style={styles.netChangeRow}>
             <ChangeBadge value={netPct} compact />
             {prevComp.prevNet !== 0 && <Text style={[styles.vsText, { color: theme.colors.textSecondary }]}>vs período anterior</Text>}
           </View>
         </View>
 
-        <View style={[styles.statsRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+        <View style={[styles.statsRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }, theme.shadow.soft]}>
           <View style={styles.statItem}>
-            <Ionicons name="time-outline" size={22} color={theme.colors.primary} />
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>{formatCurrency(dailyAvg)}</Text>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.primarySoft }]}>
+              <Ionicons name="time-outline" size={18} color={theme.colors.primary} />
+            </View>
+            <Text style={[styles.statValue, { color: theme.colors.text }]} numberOfLines={1}>{formatCurrency(dailyAvg)}</Text>
             <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Promedio/día</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: theme.colors.border }]} />
           <View style={styles.statItem}>
-            <Ionicons name={topCat?.icon || 'flag-outline'} size={22} color={topCat?.color || '#6B7280'} />
+            <View style={[styles.statIcon, { backgroundColor: (topCat?.color || '#6B7280') + '22' }]}>
+              <Ionicons name={topCat?.icon || 'flag-outline'} size={18} color={topCat?.color || '#6B7280'} />
+            </View>
             <Text style={[styles.statValue, { color: theme.colors.text }]} numberOfLines={1}>{topCat?.label || 'N/A'}</Text>
             <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Mayor gasto</Text>
             {topCat && <Text style={[styles.statSub, { color: theme.colors.textSecondary }]}>{formatCurrency(sortedCategories[0][1])}</Text>}
           </View>
         </View>
 
+        {pieData.length > 0 && (
+          <FadeInView delay={280}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Distribución de gastos</Text>
+            <View style={[styles.chartCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }, theme.shadow.soft]}>
+              <PieChart
+                data={pieData}
+                width={chartWidth}
+                height={200}
+                chartConfig={chartConfig}
+                accessor="population"
+                backgroundColor="transparent"
+                paddingLeft="0"
+                center={[0, 0]}
+                hasLegend
+              />
+            </View>
+          </FadeInView>
+        )}
+
+        {hasTrend && (
+          <FadeInView delay={320}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Tendencia anual</Text>
+            <View style={[styles.chartCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }, theme.shadow.soft]}>
+              <BarChart
+                data={barData}
+                width={chartWidth}
+                height={220}
+                chartConfig={chartConfig}
+                fromZero
+                showValuesOnTopOfBars={false}
+                withInnerLines={false}
+                yAxisLabel="$"
+                yAxisSuffix=""
+                style={styles.barChart}
+              />
+            </View>
+          </FadeInView>
+        )}
+
         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Gastos por categoría</Text>
         {!hasData ? (
-          <View style={[styles.emptyCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-            <Ionicons name="document-text-outline" size={36} color={theme.colors.textSecondary} />
+          <View style={[styles.emptyCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }, theme.shadow.soft]}>
+            <View style={[styles.emptyIcon, { backgroundColor: theme.colors.surface }]}>
+              <Ionicons name="document-text-outline" size={26} color={theme.colors.textSecondary} />
+            </View>
             <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No hay movimientos en este período</Text>
           </View>
         ) : sortedCategories.length === 0 ? (
           <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>Sin gastos en este período</Text>
         ) : (
-          sortedCategories.map(([catName, amount]) => {
+          sortedCategories.map(([catName, amount], idx) => {
             const cat = expenseCategories.find((c) => c.name === catName) || { label: catName, color: '#6B7280', icon: 'ellipsis-horizontal-outline' };
             const pct = (amount / maxExpense) * 100;
             return (
-              <TouchableOpacity
-                key={catName}
-                style={[styles.catRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
-                onPress={() => setSelectedCategory(catName)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.catIcon, { backgroundColor: cat.color + '20' }]}>
-                  <Ionicons name={cat.icon} size={18} color={cat.color} />
-                </View>
-                <View style={styles.catInfo}>
-                  <View style={styles.catTop}>
-                    <Text style={[styles.catName, { color: theme.colors.text }]}>{cat.label}</Text>
-                    <Text style={[styles.catAmount, { color: theme.colors.text }]}>{formatCurrency(amount)}</Text>
+              <FadeInView key={catName} delay={360 + idx * 50}>
+                <TouchableOpacity
+                  style={[styles.catRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }, theme.shadow.soft]}
+                  onPress={() => setSelectedCategory(catName)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.catIcon, { backgroundColor: cat.color + '20' }]}>
+                    <Ionicons name={cat.icon} size={18} color={cat.color} />
                   </View>
-                  <View style={[styles.catBarBg, { backgroundColor: theme.colors.surface }]}>
-                    <View style={[styles.catBarFill, { width: `${pct}%`, backgroundColor: cat.color }]} />
+                  <View style={styles.catInfo}>
+                    <View style={styles.catTop}>
+                      <Text style={[styles.catName, { color: theme.colors.text }]}>{cat.label}</Text>
+                      <Text style={[styles.catAmount, { color: theme.colors.text }]}>{formatCurrency(amount)}</Text>
+                    </View>
+                    <AnimatedBar pct={pct} color={cat.color} trackColor={theme.colors.surface} height={6} delay={420 + idx * 50} />
                   </View>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
+                  <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              </FadeInView>
             );
           })
         )}
@@ -351,7 +463,7 @@ export default function StatisticsScreen() {
         {hasData && (
           <>
             <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 8 }]}>Comparación</Text>
-            <View style={[styles.compCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+            <View style={[styles.compCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }, theme.shadow.soft]}>
               <Text style={[styles.compTitle, { color: theme.colors.text }]}>
                 {prevMonthName} vs {currMonthName}
               </Text>
@@ -464,51 +576,59 @@ export default function StatisticsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: 20, paddingBottom: 40 },
-  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 16 },
-  balanceCard: { padding: 22, borderRadius: 24, marginBottom: 16, backgroundColor: '#2563EB', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 8 },
+  title: { fontSize: 28, fontWeight: '800', marginBottom: 16, letterSpacing: -0.4 },
+  balanceCardWrap: { borderRadius: 26, marginBottom: 16 },
+  balanceCard: { padding: 22, borderRadius: 26, overflow: 'hidden' },
+  balanceGlow: { position: 'absolute', top: -60, right: -40, width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(255,255,255,0.14)' },
+  balanceGlow2: { position: 'absolute', bottom: -80, left: -30, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255,255,255,0.08)' },
+  chartCard: { borderRadius: 20, borderWidth: 1, paddingVertical: 14, paddingHorizontal: 4, marginBottom: 6, alignItems: 'center', overflow: 'hidden' },
+  barChart: { borderRadius: 16, marginLeft: -8 },
   balanceTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  balanceLabel: { fontSize: 14, color: 'rgba(255,255,255,0.85)' },
-  balance: { fontSize: 34, fontWeight: 'bold', color: '#FFF', marginTop: 8, letterSpacing: 0.5 },
-  balanceSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
-  tabRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, backgroundColor: '#E5E7EB' },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
-  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, marginBottom: 10 },
-  navArrow: { padding: 4 },
-  navLabel: { fontSize: 15, fontWeight: '600', flex: 1, textAlign: 'center' },
+  balanceLabel: { fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: '600', letterSpacing: 0.4 },
+  balanceIconBadge: { width: 34, height: 34, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.18)', justifyContent: 'center', alignItems: 'center' },
+  balance: { fontSize: 36, fontWeight: '800', color: '#FFF', marginTop: 10, letterSpacing: -0.6 },
+  balanceSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 8 },
+  tabRow: { flexDirection: 'row', gap: 6, marginBottom: 12, padding: 5, borderRadius: 18 },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14 },
+  tabText: { fontSize: 13, fontWeight: '700' },
+  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 8, borderRadius: 18, borderWidth: 1, marginBottom: 10 },
+  navArrow: { width: 36, height: 36, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
+  navLabel: { fontSize: 15, fontWeight: '700', flex: 1, textAlign: 'center' },
   quickRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  quickBtn: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14, borderWidth: 1 },
-  quickText: { fontSize: 11, fontWeight: '500' },
+  quickBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14, borderWidth: 1 },
+  quickText: { fontSize: 11.5, fontWeight: '600' },
   summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-  summaryCard: { flex: 1, padding: 16, borderRadius: 16, borderWidth: 1 },
-  summaryLabel: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
-  summaryAmountGreen: { fontSize: 20, fontWeight: 'bold', color: '#065F46', marginTop: 4 },
-  summaryAmountRed: { fontSize: 20, fontWeight: 'bold', color: '#9F1239', marginTop: 4 },
-  changeBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, marginTop: 6, alignSelf: 'flex-start' },
-  changeText: { fontWeight: '600' },
-  netCard: { padding: 18, borderRadius: 16, borderWidth: 1, alignItems: 'center', marginBottom: 16 },
-  netLabel: { fontSize: 13, fontWeight: '500' },
-  netAmount: { fontSize: 24, fontWeight: 'bold', marginTop: 4 },
-  netChangeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  summaryCard: { flex: 1, padding: 16, borderRadius: 20, borderWidth: 1 },
+  summaryIcon: { width: 34, height: 34, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  summaryLabel: { fontSize: 12, fontWeight: '600' },
+  summaryAmount: { fontSize: 19, fontWeight: '800', marginTop: 3 },
+  changeBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 9, marginTop: 8, alignSelf: 'flex-start' },
+  changeText: { fontWeight: '700' },
+  netCard: { padding: 20, borderRadius: 20, borderWidth: 1, alignItems: 'center', marginBottom: 16 },
+  netLabel: { fontSize: 12.5, fontWeight: '600' },
+  netAmount: { fontSize: 26, fontWeight: '800', marginTop: 6, letterSpacing: -0.4 },
+  netChangeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   vsText: { fontSize: 11 },
-  statsRow: { flexDirection: 'row', borderRadius: 16, borderWidth: 1, marginBottom: 20 },
-  statItem: { flex: 1, padding: 16, alignItems: 'center' },
+  statsRow: { flexDirection: 'row', borderRadius: 20, borderWidth: 1, marginBottom: 22, overflow: 'hidden' },
+  statItem: { flex: 1, padding: 18, alignItems: 'center' },
+  statIcon: { width: 38, height: 38, borderRadius: 13, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   statDivider: { width: 1 },
-  statValue: { fontSize: 15, fontWeight: 'bold', marginTop: 6 },
-  statLabel: { fontSize: 11, marginTop: 2 },
+  statValue: { fontSize: 15, fontWeight: '800', marginTop: 2 },
+  statLabel: { fontSize: 11, marginTop: 3 },
   statSub: { fontSize: 11, marginTop: 2 },
-  sectionTitle: { fontSize: 17, fontWeight: 'bold', marginBottom: 12 },
-  emptyCard: { padding: 32, borderRadius: 16, borderWidth: 1, alignItems: 'center' },
-  emptyText: { fontSize: 14, marginTop: 8 },
-  catRow: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 8 },
-  catIcon: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', marginBottom: 12, letterSpacing: -0.2 },
+  emptyCard: { padding: 32, borderRadius: 20, borderWidth: 1, alignItems: 'center' },
+  emptyIcon: { width: 58, height: 58, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { fontSize: 14, marginTop: 12 },
+  catRow: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 18, borderWidth: 1, marginBottom: 8 },
+  catIcon: { width: 40, height: 40, borderRadius: 13, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   catInfo: { flex: 1 },
-  catTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  catName: { fontSize: 14, fontWeight: '600' },
-  catAmount: { fontSize: 14, fontWeight: 'bold' },
-  catBarBg: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  catBarFill: { height: '100%', borderRadius: 3 },
-  compCard: { borderRadius: 16, borderWidth: 1, padding: 16 },
+  catTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  catName: { fontSize: 14.5, fontWeight: '700' },
+  catAmount: { fontSize: 14, fontWeight: '800' },
+  catBarBg: { height: 7, borderRadius: 4, overflow: 'hidden' },
+  catBarFill: { height: '100%', borderRadius: 4 },
+  compCard: { borderRadius: 20, borderWidth: 1, padding: 16 },
   compTitle: { fontSize: 15, fontWeight: '600', marginBottom: 12 },
   compHeader: { flexDirection: 'row', paddingBottom: 8, borderBottomWidth: 1, marginBottom: 4 },
   compCol: { flex: 1, fontSize: 12, fontWeight: '600' },

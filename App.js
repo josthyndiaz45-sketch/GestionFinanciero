@@ -9,8 +9,8 @@ import { BalanceProvider } from './src/providers/BalanceContext';
 import { TransactionProvider } from './src/providers/TransactionContext';
 import { SavingGoalProvider } from './src/providers/SavingGoalContext';
 import { BudgetProvider } from './src/providers/BudgetContext';
+import { LoanProvider } from './src/providers/LoanContext';
 import { ReminderProvider } from './src/providers/ReminderContext';
-import { TagProvider } from './src/providers/TagContext';
 import { CategoryProvider } from './src/providers/CategoryContext';
 import { setupNotifications } from './src/services/notificationService';
 import { registerWebPush } from './src/services/webPushService';
@@ -55,13 +55,13 @@ export default function App() {
             <TransactionProvider>
               <SavingGoalProvider>
                 <BudgetProvider>
-                  <ReminderProvider>
-                    <TagProvider>
+                  <LoanProvider>
+                    <ReminderProvider>
                       <CategoryProvider>
                         <AppContent />
                       </CategoryProvider>
-                    </TagProvider>
-                  </ReminderProvider>
+                    </ReminderProvider>
+                  </LoanProvider>
                 </BudgetProvider>
               </SavingGoalProvider>
             </TransactionProvider>

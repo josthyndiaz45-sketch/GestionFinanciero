@@ -7,6 +7,7 @@ import { useTransactions } from '../../providers/TransactionContext';
 import { useBalance } from '../../providers/BalanceContext';
 import { useSavingGoals } from '../../providers/SavingGoalContext';
 import { useBudgets } from '../../providers/BudgetContext';
+import { useLoans } from '../../providers/LoanContext';
 import { useAuth } from '../../providers/AuthContext';
 import {
   exportTransactionsCsv,
@@ -20,7 +21,7 @@ const EXPORT_OPTIONS = [
   { key: 'csv', label: 'Movimientos a CSV', desc: 'Abre en Excel / hojas de cálculo', icon: 'document-text-outline', color: '#10B981' },
   { key: 'xlsx', label: 'Movimientos a Excel (.xlsx)', desc: 'Libro de Excel con formato', icon: 'grid-outline', color: '#2563EB' },
   { key: 'pdf', label: 'Movimientos a PDF', desc: 'Reporte imprimible', icon: 'document-outline', color: '#EF4444' },
-  { key: 'backup', label: 'Respaldo completo (.json)', desc: 'Movimientos + presupuestos + metas + saldo', icon: 'cloud-download-outline', color: '#8B5CF6' },
+  { key: 'backup', label: 'Respaldo completo (.json)', desc: 'Movimientos + presupuestos + metas + préstamos + saldo', icon: 'cloud-download-outline', color: '#8B5CF6' },
 ];
 
 export default function ExportPanel({ onDone }) {
@@ -30,6 +31,7 @@ export default function ExportPanel({ onDone }) {
   const { transactions } = useTransactions();
   const { budgets } = useBudgets();
   const { goals } = useSavingGoals();
+  const { loans } = useLoans();
   const { initialBalance } = useBalance();
 
   const notifyAfterClose = (title, message) => {
@@ -48,7 +50,7 @@ export default function ExportPanel({ onDone }) {
       case 'xlsx': result = exportTransactionsXlsx(transactions); break;
       case 'pdf': result = exportTransactionsPdf(transactions); break;
       case 'backup': {
-        const backup = buildBackup({ userId: user?.id, transactions, budgets, savingGoals: goals, initialBalance });
+        const backup = buildBackup({ userId: user?.id, transactions, budgets, savingGoals: goals, loans, initialBalance });
         result = exportBackup(backup);
         break;
       }

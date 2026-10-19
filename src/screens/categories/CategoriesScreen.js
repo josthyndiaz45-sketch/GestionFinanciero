@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../providers/ThemeContext';
 import { useCategories } from '../../providers/CategoryContext';
 import { useAppAlert } from '../../providers/AlertContext';
+import { CATEGORY_ICONS } from '../../constants/constants';
 
 export default function CategoriesScreen() {
   const { theme } = useTheme();
@@ -12,6 +13,7 @@ export default function CategoriesScreen() {
   const { showAlert, showConfirm } = useAppAlert();
   const [tab, setTab] = useState('expense');
   const [name, setName] = useState('');
+  const [icon, setIcon] = useState(CATEGORY_ICONS[0]);
 
   const categories = getCategories(tab);
 
@@ -23,8 +25,9 @@ export default function CategoriesScreen() {
     }
     const normalized = label.toLowerCase().replace(/\s+/g, '_');
     try {
-      await addCategory(tab, { name: normalized, label, color: pickColor(tab), icon: 'pricetag-outline' });
+      await addCategory(tab, { name: normalized, label, color: pickColor(tab), icon });
       setName('');
+      setIcon(CATEGORY_ICONS[0]);
     } catch (e) {
       showAlert('Error', e.message || 'No se pudo agregar la categoría');
     }
@@ -75,17 +78,37 @@ export default function CategoriesScreen() {
         )}
       />
 
-      <View style={[styles.addBar, { backgroundColor: theme.colors.card }]}>
-        <TextInput
-          style={[styles.input, { color: theme.colors.text, backgroundColor: theme.colors.surface }]}
-          placeholder="Nueva categoría"
-          placeholderTextColor={theme.colors.textSecondary}
-          value={name}
-          onChangeText={setName}
-        />
-        <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.colors.primary }]} onPress={handleAdd}>
-          <Ionicons name="add" size={22} color="#FFF" />
-        </TouchableOpacity>
+      <View style={[styles.addSection, { backgroundColor: theme.colors.card, borderTopColor: theme.colors.border }]}>
+        <Text style={[styles.pickerLabel, { color: theme.colors.textSecondary }]}>Ícono</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.iconRow}>
+          {CATEGORY_ICONS.map((ic) => {
+            const selected = ic === icon;
+            return (
+              <TouchableOpacity
+                key={ic}
+                style={[styles.iconOption, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }, selected && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
+                onPress={() => setIcon(ic)}
+              >
+                <Ionicons name={ic} size={20} color={selected ? '#FFF' : theme.colors.textSecondary} />
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+        <View style={styles.addBar}>
+          <View style={[styles.previewIcon, { backgroundColor: `${pickColor(tab)}22`, borderColor: theme.colors.border }]}>
+            <Ionicons name={icon} size={20} color={pickColor(tab)} />
+          </View>
+          <TextInput
+            style={[styles.input, { color: theme.colors.text, backgroundColor: theme.colors.surface }]}
+            placeholder="Nueva categoría"
+            placeholderTextColor={theme.colors.textSecondary}
+            value={name}
+            onChangeText={setName}
+          />
+          <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.colors.primary }]} onPress={handleAdd}>
+            <Ionicons name="add" size={22} color="#FFF" />
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -98,7 +121,12 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 14, gap: 12 },
   iconWrap: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   rowLabel: { flex: 1, fontSize: 15, fontWeight: '600' },
-  addBar: { flexDirection: 'row', gap: 10, padding: 16, alignItems: 'center' },
+  addSection: { paddingTop: 12, borderTopWidth: 0.5 },
+  pickerLabel: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginHorizontal: 16, marginBottom: 8 },
+  iconRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
+  iconOption: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  previewIcon: { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  addBar: { flexDirection: 'row', gap: 10, padding: 16, paddingTop: 4, alignItems: 'center' },
   input: { flex: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15 },
   addBtn: { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });

@@ -147,7 +147,7 @@ export function exportTransactionsPdf(transactions) {
   return downloadBlob(`movimientos_${stamp()}.pdf`, doc.output('blob'));
 }
 
-export function buildBackup({ userId, transactions, budgets, savingGoals, initialBalance }) {
+export function buildBackup({ userId, transactions, budgets, savingGoals, loans, initialBalance }) {
   const asMaps = (list, toMap) => (list || []).map(toMap);
   return {
     app: 'GestionFinanciero',
@@ -159,6 +159,7 @@ export function buildBackup({ userId, transactions, budgets, savingGoals, initia
     transactions: asMaps(transactions, (t) => t),
     budgets: asMaps(budgets, (b) => b),
     savingGoals: asMaps(savingGoals, (g) => g),
+    loans: asMaps(loans, (l) => l),
   };
 }
 

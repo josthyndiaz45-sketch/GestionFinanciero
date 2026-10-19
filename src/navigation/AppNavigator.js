@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../providers/ThemeContext';
 import { useAuth } from '../providers/AuthContext';
-import { View, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, Animated, Pressable, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import HomeScreen from '../screens/home/HomeScreen';
@@ -17,6 +18,8 @@ import SavingGoalsScreen from '../screens/savingGoals/SavingGoalsScreen';
 import BudgetsScreen from '../screens/budgets/BudgetsScreen';
 import RemindersScreen from '../screens/reminders/RemindersScreen';
 import CategoriesScreen from '../screens/categories/CategoriesScreen';
+import LoansScreen from '../screens/loans/LoansScreen';
+import ScheduleScreen from '../screens/schedule/ScheduleScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -59,7 +62,51 @@ function SettingsStack() {
       <Stack.Screen name="Budgets" component={BudgetsScreen} options={{ title: 'Presupuestos' }} />
       <Stack.Screen name="Reminders" component={RemindersScreen} options={{ title: 'Recordatorios' }} />
       <Stack.Screen name="Categories" component={CategoriesScreen} options={{ title: 'Categorías' }} />
+      <Stack.Screen name="Loans" component={LoansScreen} options={{ title: 'Préstamos y deudas' }} />
+      <Stack.Screen name="Schedule" component={ScheduleScreen} options={{ title: 'Horarios' }} />
     </Stack.Navigator>
+  );
+}
+
+const TAB_META = {
+  Inicio: { on: 'home', off: 'home-outline' },
+  Estadísticas: { on: 'stats-chart', off: 'stats-chart-outline' },
+  Movimientos: { on: 'swap-horizontal', off: 'swap-horizontal-outline' },
+  Configuración: { on: 'settings', off: 'settings-outline' },
+};
+
+function TabItem({ route, focused, onPress, theme }) {
+  const progress = useRef(new Animated.Value(focused ? 1 : 0)).current;
+  const meta = TAB_META[route.name] || { on: 'ellipse', off: 'ellipse-outline' };
+
+  useEffect(() => {
+    Animated.spring(progress, {
+      toValue: focused ? 1 : 0,
+      useNativeDriver: true,
+      friction: 6,
+      tension: 140,
+    }).start();
+  }, [focused, progress]);
+
+  const iconName = focused ? meta.on : meta.off;
+  const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
+  const barWidth = progress.interpolate({ inputRange: [0, 1], outputRange: [0, 20] });
+  const pillOpacity = progress.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, -2] });
+
+  const activeColor = theme.colors.primary;
+  const inactiveColor = theme.colors.textSecondary;
+  const color = focused ? activeColor : inactiveColor;
+
+  return (
+    <Pressable style={styles.tabItem} onPress={onPress} android_ripple={{ color: theme.colors.primarySoft, borderless: true }}>
+      <Animated.View style={[styles.tabIconWrap, { backgroundColor: theme.colors.primarySoft, opacity: pillOpacity }]} />
+      <Animated.View style={{ transform: [{ translateY }, { scale }] }}>
+        <Ionicons name={iconName} size={23} color={color} />
+      </Animated.View>
+      <Animated.Text style={[styles.tabLabel, { color }]} numberOfLines={1}>{route.name}</Animated.Text>
+      <Animated.View style={[styles.tabBar, { width: barWidth, backgroundColor: activeColor }]} />
+    </Pressable>
   );
 }
 
@@ -68,33 +115,8 @@ function TabNavigator() {
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-          if (route.name === 'Inicio') iconName = focused ? 'home' : 'home-outline';
-          else if (route.name === 'Estadísticas') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-          else if (route.name === 'Movimientos') iconName = focused ? 'list' : 'list-outline';
-          else if (route.name === 'Configuración') iconName = focused ? 'settings' : 'settings-outline';
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textSecondary,
-        tabBarStyle: {
-          backgroundColor: theme.colors.card,
-          borderTopColor: theme.colors.border,
-          borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 6,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.05,
-          shadowRadius: 12,
-          elevation: 10,
-        },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-      })}
+      screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}
+      tabBar={(props) => <CustomTabBar {...props} theme={theme} />}
     >
       <Tab.Screen name="Inicio" component={HomeStack} />
       <Tab.Screen name="Estadísticas" component={StatsStack} />
@@ -103,6 +125,47 @@ function TabNavigator() {
     </Tab.Navigator>
   );
 }
+
+function CustomTabBar({ state, descriptors, navigation, theme }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={[
+        styles.tabBarContainer,
+        { backgroundColor: theme.colors.card, borderTopColor: theme.colors.border, paddingBottom: 10 + insets.bottom },
+      ]}
+    >
+      {state.routes.map((route, index) => {
+        const focused = state.index === index;
+        const onPress = () => {
+          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+          if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+        };
+        return (
+          <TabItem key={route.key} route={route} focused={focused} onPress={onPress} theme={theme} />
+        );
+      })}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  tabBarContainer: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    paddingTop: 8,
+    paddingBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 18,
+  },
+  tabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  tabIconWrap: { position: 'absolute', top: -2, width: 42, height: 30, borderRadius: 15 },
+  tabLabel: { fontSize: 10.5, fontWeight: '700', letterSpacing: 0.1, marginTop: 1 },
+  tabBar: { height: 3, borderRadius: 2, marginTop: 3 },
+});
 
 export default function AppNavigator() {
   const { user, loading } = useAuth();

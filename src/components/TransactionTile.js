@@ -11,23 +11,37 @@ export default function TransactionTile({ transaction, onPress, onDelete }) {
   const list = transaction.type === 'income' ? getCategories('income') : getCategories('expense');
   const cat = list.find((c) => c.name === transaction.category) || { name: 'otros', label: 'Otros', color: '#6B7280', icon: 'pricetag-outline' };
   const isIncome = transaction.type === 'income';
+  const amountColor = isIncome ? theme.colors.income : theme.colors.expense;
 
   return (
-    <TouchableOpacity style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }, theme.shadow.soft]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
       <View style={[styles.iconContainer, { backgroundColor: cat.color + '1A' }]}>
         <Ionicons name={cat.icon} size={22} color={cat.color} />
       </View>
       <View style={styles.info}>
-        <Text style={[styles.description, { color: theme.colors.text }]} numberOfLines={1}>{transaction.description}</Text>
-        <Text style={[styles.category, { color: theme.colors.textSecondary }]} numberOfLines={1}>{cat.label} • {formatDateTime(transaction.date)}</Text>
+        <Text style={[styles.description, { color: theme.colors.text }]} numberOfLines={1}>
+          {String(transaction.description || '').trim() || 'Sin mensaje'}
+        </Text>
+        <View style={styles.metaRow}>
+          <View style={[styles.metaDot, { backgroundColor: cat.color }]} />
+          <Text style={[styles.category, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+            {cat.label} • {formatDateTime(transaction.date)}
+          </Text>
+        </View>
       </View>
       <View style={styles.rightSection}>
-        <Text style={[styles.amount, { color: isIncome ? theme.colors.income : theme.colors.expense }]}>
-          {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
-        </Text>
+        <View style={[styles.amountPill, { backgroundColor: amountColor + '14' }]}>
+          <Text style={[styles.amount, { color: amountColor }]}>
+            {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
+          </Text>
+        </View>
         {onDelete && (
-          <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(transaction)}>
-            <Ionicons name="close-circle" size={20} color="#EF4444" />
+          <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(transaction)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close-circle" size={20} color={theme.colors.danger} />
           </TouchableOpacity>
         )}
       </View>
@@ -36,12 +50,15 @@ export default function TransactionTile({ transaction, onPress, onDelete }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
-  iconContainer: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  container: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 18, borderWidth: 1, marginBottom: 10 },
+  iconContainer: { width: 46, height: 46, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   info: { flex: 1 },
-  description: { fontSize: 15, fontWeight: '600' },
-  category: { fontSize: 12, marginTop: 3 },
-  rightSection: { alignItems: 'flex-end', gap: 4 },
-  amount: { fontSize: 15, fontWeight: 'bold' },
+  description: { fontSize: 15, fontWeight: '700', letterSpacing: 0.1 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 6 },
+  metaDot: { width: 6, height: 6, borderRadius: 3 },
+  category: { fontSize: 12, flexShrink: 1 },
+  rightSection: { alignItems: 'flex-end', gap: 6 },
+  amountPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
+  amount: { fontSize: 14, fontWeight: '800', letterSpacing: 0.1 },
   deleteBtn: { padding: 2 },
 });

@@ -39,9 +39,21 @@ export function TransactionProvider({ children }) {
     setTransactions((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const getRecentImports = useCallback(async (sinceIso) => {
+    if (!user) return [];
+    return transactionService.getRecentImports(user.id, sinceIso);
+  }, [user]);
+
+  const deleteImportedTransactions = useCallback(async (sinceIso) => {
+    if (!user) return 0;
+    const count = await transactionService.deleteImportedTransactions(user.id, sinceIso);
+    await loadTransactions();
+    return count;
+  }, [user, loadTransactions]);
+
   return (
     <TransactionContext.Provider
-      value={{ transactions, loading, loadTransactions, addTransaction, editTransaction, removeTransaction }}
+      value={{ transactions, loading, loadTransactions, addTransaction, editTransaction, removeTransaction, getRecentImports, deleteImportedTransactions }}
     >
       {children}
     </TransactionContext.Provider>

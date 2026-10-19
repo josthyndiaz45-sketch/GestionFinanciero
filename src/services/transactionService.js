@@ -50,3 +50,33 @@ export async function deleteTransaction(id) {
     if (error) throw error;
   });
 }
+
+const IMPORT_NOTE = 'Importado desde archivo';
+
+export async function getRecentImports(userId, sinceIso) {
+  return safeQuery(async () => {
+    let query = supabase
+      .from('transactions')
+      .select('id, date, created_at')
+      .eq('user_id', userId)
+      .eq('note', IMPORT_NOTE);
+    if (sinceIso) query = query.gte('created_at', sinceIso);
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  });
+}
+
+export async function deleteImportedTransactions(userId, sinceIso) {
+  return safeQuery(async () => {
+    let query = supabase
+      .from('transactions')
+      .delete()
+      .eq('user_id', userId)
+      .eq('note', IMPORT_NOTE);
+    if (sinceIso) query = query.gte('created_at', sinceIso);
+    const { data, error } = await query.select('id');
+    if (error) throw error;
+    return (data || []).length;
+  });
+}
